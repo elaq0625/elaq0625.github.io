@@ -10,14 +10,14 @@
     <meta name="author" content="Kevin">
     
     
-        <link rel="icon" href="http://usehun0625.github.io/assets/images/beer_favaicon.png">
+        <link rel="icon" href="http://elaq0625.github.io/assets/images/beer_favaicon.png">
     
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\nAWS Command Line Interface 사용 설명서를 살펴보며 AWS CLI에 대한 학습했던 내용을 개인적으로 정리한다.AWS Command Line Interface 사용 설명서의 모든 내용을 설명하는 것은 현실적으로 어렵기 때문에 개인적으로 필요하다고 생각되는 부분만 정리한다.테스트 및 실습은 macOS에서 진행되었고, 이와 관련된 내용만 정리한다.\n\n\nAWS CLI란?AWS CLI는 Amazon Web Service Command Line Interface의 약자로 셸의 명령을 사용하여 AWS 서비스와 상호 작용할 수 있는 오픈 소스 도구이다.AWS Management 콘솔과 동일한 기능을 제공을 해준다.자세한 내용은 AWS Command Line Interface 사용 설명서를 참고한다.\n설치방법macOS다음과 같은 환경에서 AWS CLI 설치를 진행하였다.\n\nmacOS Mojave 버전 10.14.6(18G87)\n\nAWS CLI를 설치하기 위하여 아래의 Python 버전이상이 설치 되어 있어야 한다.\n\n“2019. 8. 27” 기준 - Python 2 버전 2.6.5+ 또는 Python 3 버전 3.3+\n\nPython이 설치 되어있지 않다면 설치방법에 대하여 구글링을 하거나 다음과 같은 brew 명령을 활용하여 설치하면 된다.\n1$ brew install python3\n\n다른 설치 방법도 있지만 AWS CLI의 기본 배포 방법은 pip이며, 그중 pip3로 설치하는 것을 권장하고 있으므로 pip3로 설치를 진행한다.다음과 같이 AWS CLI를 설치를 진행한다.\n1$ pip3 install awscli --upgrade --user\n\n다음과 같은 명령으로 AWS CLI 설치 확인겸 버전 확인을 한다.\n12$ aws --versionaws-cli/1.16.222 Python/2.7.16 Darwin/18.7.0 botocore/1.12.212\n자세한 내용은 AWS CLI 설치 - macOS를 참고한다.\n다른 OSAWS CLI 설치에서 사용하는 OS에 맞는 설치법을 찾아 설치하면 된다.\n\n구성 및 자격 증명 저장AWS CLI는 자주 사용하는 구성 및 자격 증명을 파일로 저장하여 관리할 수 있다.\n구성 및 자격 증명의 구조구성 및 자격 증명은 다음과 같은 구조로 저장된다.\n123Users/kevin/.aws/├── config└── credentials\n\n각각의 파일에 담기는 내용은 다음과 같다.\n\nconfig\noutput : aws cli로 부터 응답을 받는 형식 (예 : json, text)\nregion : aws region을 의미한다. region 코드표는 AWS 서비스 엔드포인트를 참고하여 설정해주면 된다.\n\n\ncredentials\naws_access_key_id : 액세스 키 아이디를 입력한다.\naws_secret_access_key : 시크릿 액세스 키를 입력한다.\n\n\n\n자세한 내용은 구성 및 자격 증명 파일을 참고한다.\n프로필 파일AWS CLI에서는 프로필 별로 구성 및 자격 증명을 설정할 수 있다.프로필 별로 구성 및 자격증명을 지정하는 방법은 다음과 같다.\n1$ aws configure --profile \"프로필명\"\n\n설정된 프로필을 확인하면 다음과 같다.\n1234567$ cat ~/.aws/config[default]region=us-west-2output=json[profile user1]region=us-east-1output=text\n\n1234567$ cat ~/.aws/credentials[default]aws_access_key_id=\"디폴트 엑세스 키 아이디\"aws_secret_access_key=\"디폴트 시크릿 엑세스 키\"[프로필명]aws_access_key_id=\"프로필명 엑세스 키 아이디\"aws_secret_access_key=\"프로필명 시크릿 엑세스 키\"\n\nAWS CLI 사용 : Amazon S3AWS CLI에서 상위 수준(s3) 명령 사용을 참고하여 문서에서 기술한대로 동작하는 지 확인했다.\n각 명령어 별로 케이스로 나누어 테스트 했다.\ncp 명령어케이스 : 로컬 파일을 s3로 복사12$ lscp                local_cp_test.txt\n\n12$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          0\n\n12$ aws s3 cp local_cp_test.txt s3://st.startup/kevin-s3-cli-test/s3_cp_test.txtupload: ./local_cp_test.txt to s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt\n\n123$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt\n\n케이스 : s3 파일을 로컬로 복사12345$ ls -altotal 16drwxr-xr-x  3 kevin  staff    96  8 22 22:25 .drwxr-xr-x  7 kevin  staff   224  8 22 20:59 ..-rw-r--r--@ 1 kevin  staff  6148  8 22 22:19 .DS_Store\n\n123$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt\n\n12$ aws s3 cp s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt ./local_cp_test.txtdownload: s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt to ./local_cp_test.txt\n\n12$ lslocal_cp_test.txt\n\n케이스 : s3 파일을 s3로 복사123$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt\n\n12$ aws s3 cp s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt s3://st.startup/kevin-s3-cli-test/s3_cp_test_copy.txtcopy: s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt to s3://st.startup/kevin-s3-cli-test/s3_cp_test_copy.txt\n\n1234$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt2019-08-22 22:30:43         21 s3_cp_test_copy.txt\n\n케이스 : 로컬 디렉터리를 s3로 복사12$ ls ./cp_dir_test/local_cp_test.txt\n\n1234$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt2019-08-22 22:30:43         21 s3_cp_test_copy.txt\n\n12$ aws s3 cp ./cp_dir_test s3://st.startup/kevin-s3-cli-test/s3_cp_dir_test --recursiveupload: cp_dir_test/local_cp_test.txt to s3://st.startup/kevin-s3-cli-test/s3_cp_dir_test/local_cp_test.txt\n\n12$ aws s3 ls s3://st.startup/kevin-s3-cli-test/s3_cp_dir_test                           PRE s3_cp_dir_test/\n\n12$ aws s3 ls s3://st.startup/kevin-s3-cli-test/s3_cp_dir_test/2019-08-22 22:34:48         21 local_cp_test.txt\n\nls, mv, rm 명령AWS CLI에서 상위 수준(s3) 명령 사용을 참고하여 테스트하며, 여기서는 별도로 학습한 내용을 정리하지 않는다.\n\n참고 자료\nAWS Command Line Interface 사용 설명서\nAWS CLI 설치\nAWS CLI에서 상위 수준(s3) 명령 사용\n\n","dateCreated":"2019-08-27T13:37:39+09:00","dateModified":"2020-02-17T13:58:35+09:00","datePublished":"2019-08-27T13:37:39+09:00","description":"\nAWS Command Line Interface 사용 설명서를 살펴보며 AWS CLI에 대한 학습했던 내용을 개인적으로 정리한다.AWS Command Line Interface 사용 설명서의 모든 내용을 설명하는 것은 현실적으로 어렵기 때문에 개인적으로 필요하다고 생각되는 부분만 정리한다.테스트 및 실습은 macOS에서 진행되었고, 이와 관련된 내용만 정리한다.","headline":"AWS CLI 기초 학습 정리","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/","keywords":"AWS, AWS CLI"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\nAWS Command Line Interface 사용 설명서를 살펴보며 AWS CLI에 대한 학습했던 내용을 개인적으로 정리한다.AWS Command Line Interface 사용 설명서의 모든 내용을 설명하는 것은 현실적으로 어렵기 때문에 개인적으로 필요하다고 생각되는 부분만 정리한다.테스트 및 실습은 macOS에서 진행되었고, 이와 관련된 내용만 정리한다.\n\n\nAWS CLI란?AWS CLI는 Amazon Web Service Command Line Interface의 약자로 셸의 명령을 사용하여 AWS 서비스와 상호 작용할 수 있는 오픈 소스 도구이다.AWS Management 콘솔과 동일한 기능을 제공을 해준다.자세한 내용은 AWS Command Line Interface 사용 설명서를 참고한다.\n설치방법macOS다음과 같은 환경에서 AWS CLI 설치를 진행하였다.\n\nmacOS Mojave 버전 10.14.6(18G87)\n\nAWS CLI를 설치하기 위하여 아래의 Python 버전이상이 설치 되어 있어야 한다.\n\n“2019. 8. 27” 기준 - Python 2 버전 2.6.5+ 또는 Python 3 버전 3.3+\n\nPython이 설치 되어있지 않다면 설치방법에 대하여 구글링을 하거나 다음과 같은 brew 명령을 활용하여 설치하면 된다.\n1$ brew install python3\n\n다른 설치 방법도 있지만 AWS CLI의 기본 배포 방법은 pip이며, 그중 pip3로 설치하는 것을 권장하고 있으므로 pip3로 설치를 진행한다.다음과 같이 AWS CLI를 설치를 진행한다.\n1$ pip3 install awscli --upgrade --user\n\n다음과 같은 명령으로 AWS CLI 설치 확인겸 버전 확인을 한다.\n12$ aws --versionaws-cli/1.16.222 Python/2.7.16 Darwin/18.7.0 botocore/1.12.212\n자세한 내용은 AWS CLI 설치 - macOS를 참고한다.\n다른 OSAWS CLI 설치에서 사용하는 OS에 맞는 설치법을 찾아 설치하면 된다.\n\n구성 및 자격 증명 저장AWS CLI는 자주 사용하는 구성 및 자격 증명을 파일로 저장하여 관리할 수 있다.\n구성 및 자격 증명의 구조구성 및 자격 증명은 다음과 같은 구조로 저장된다.\n123Users/kevin/.aws/├── config└── credentials\n\n각각의 파일에 담기는 내용은 다음과 같다.\n\nconfig\noutput : aws cli로 부터 응답을 받는 형식 (예 : json, text)\nregion : aws region을 의미한다. region 코드표는 AWS 서비스 엔드포인트를 참고하여 설정해주면 된다.\n\n\ncredentials\naws_access_key_id : 액세스 키 아이디를 입력한다.\naws_secret_access_key : 시크릿 액세스 키를 입력한다.\n\n\n\n자세한 내용은 구성 및 자격 증명 파일을 참고한다.\n프로필 파일AWS CLI에서는 프로필 별로 구성 및 자격 증명을 설정할 수 있다.프로필 별로 구성 및 자격증명을 지정하는 방법은 다음과 같다.\n1$ aws configure --profile \"프로필명\"\n\n설정된 프로필을 확인하면 다음과 같다.\n1234567$ cat ~/.aws/config[default]region=us-west-2output=json[profile user1]region=us-east-1output=text\n\n1234567$ cat ~/.aws/credentials[default]aws_access_key_id=\"디폴트 엑세스 키 아이디\"aws_secret_access_key=\"디폴트 시크릿 엑세스 키\"[프로필명]aws_access_key_id=\"프로필명 엑세스 키 아이디\"aws_secret_access_key=\"프로필명 시크릿 엑세스 키\"\n\nAWS CLI 사용 : Amazon S3AWS CLI에서 상위 수준(s3) 명령 사용을 참고하여 문서에서 기술한대로 동작하는 지 확인했다.\n각 명령어 별로 케이스로 나누어 테스트 했다.\ncp 명령어케이스 : 로컬 파일을 s3로 복사12$ lscp                local_cp_test.txt\n\n12$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          0\n\n12$ aws s3 cp local_cp_test.txt s3://st.startup/kevin-s3-cli-test/s3_cp_test.txtupload: ./local_cp_test.txt to s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt\n\n123$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt\n\n케이스 : s3 파일을 로컬로 복사12345$ ls -altotal 16drwxr-xr-x  3 kevin  staff    96  8 22 22:25 .drwxr-xr-x  7 kevin  staff   224  8 22 20:59 ..-rw-r--r--@ 1 kevin  staff  6148  8 22 22:19 .DS_Store\n\n123$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt\n\n12$ aws s3 cp s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt ./local_cp_test.txtdownload: s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt to ./local_cp_test.txt\n\n12$ lslocal_cp_test.txt\n\n케이스 : s3 파일을 s3로 복사123$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt\n\n12$ aws s3 cp s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt s3://st.startup/kevin-s3-cli-test/s3_cp_test_copy.txtcopy: s3://st.startup/kevin-s3-cli-test/s3_cp_test.txt to s3://st.startup/kevin-s3-cli-test/s3_cp_test_copy.txt\n\n1234$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt2019-08-22 22:30:43         21 s3_cp_test_copy.txt\n\n케이스 : 로컬 디렉터리를 s3로 복사12$ ls ./cp_dir_test/local_cp_test.txt\n\n1234$ aws s3 ls s3://st.startup/kevin-s3-cli-test/2019-08-22 21:10:50          02019-08-22 22:23:05         21 s3_cp_test.txt2019-08-22 22:30:43         21 s3_cp_test_copy.txt\n\n12$ aws s3 cp ./cp_dir_test s3://st.startup/kevin-s3-cli-test/s3_cp_dir_test --recursiveupload: cp_dir_test/local_cp_test.txt to s3://st.startup/kevin-s3-cli-test/s3_cp_dir_test/local_cp_test.txt\n\n12$ aws s3 ls s3://st.startup/kevin-s3-cli-test/s3_cp_dir_test                           PRE s3_cp_dir_test/\n\n12$ aws s3 ls s3://st.startup/kevin-s3-cli-test/s3_cp_dir_test/2019-08-22 22:34:48         21 local_cp_test.txt\n\nls, mv, rm 명령AWS CLI에서 상위 수준(s3) 명령 사용을 참고하여 테스트하며, 여기서는 별도로 학습한 내용을 정리하지 않는다.\n\n참고 자료\nAWS Command Line Interface 사용 설명서\nAWS CLI 설치\nAWS CLI에서 상위 수준(s3) 명령 사용\n\n","dateCreated":"2019-08-27T13:37:39+09:00","dateModified":"2020-02-17T13:58:35+09:00","datePublished":"2019-08-27T13:37:39+09:00","description":"\nAWS Command Line Interface 사용 설명서를 살펴보며 AWS CLI에 대한 학습했던 내용을 개인적으로 정리한다.AWS Command Line Interface 사용 설명서의 모든 내용을 설명하는 것은 현실적으로 어렵기 때문에 개인적으로 필요하다고 생각되는 부분만 정리한다.테스트 및 실습은 macOS에서 진행되었고, 이와 관련된 내용만 정리한다.","headline":"AWS CLI 기초 학습 정리","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/","keywords":"AWS, AWS CLI"}</script>
     <meta name="description" content="AWS Command Line Interface 사용 설명서를 살펴보며 AWS CLI에 대한 학습했던 내용을 개인적으로 정리한다.AWS Command Line Interface 사용 설명서의 모든 내용을 설명하는 것은 현실적으로 어렵기 때문에 개인적으로 필요하다고 생각되는 부분만 정리한다.테스트 및 실습은 macOS에서 진행되었고, 이와 관련된 내용만 정">
 <meta property="og:type" content="blog">
 <meta property="og:title" content="AWS CLI 기초 학습 정리">
-<meta property="og:url" content="http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/index.html">
+<meta property="og:url" content="http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/index.html">
 <meta property="og:site_name" content="Kevin의 블로그">
 <meta property="og:description" content="AWS Command Line Interface 사용 설명서를 살펴보며 AWS CLI에 대한 학습했던 내용을 개인적으로 정리한다.AWS Command Line Interface 사용 설명서의 모든 내용을 설명하는 것은 현실적으로 어렵기 때문에 개인적으로 필요하다고 생각되는 부분만 정리한다.테스트 및 실습은 macOS에서 진행되었고, 이와 관련된 내용만 정">
 <meta property="og:locale" content="en_US">
@@ -32,7 +32,7 @@
         
     
     
-        <meta property="og:image" content="http://usehun0625.github.io/assets/images/beer.jpg"/>
+        <meta property="og:image" content="http://elaq0625.github.io/assets/images/beer.jpg"/>
     
     
     
@@ -181,7 +181,7 @@
             
                 <li class="sidebar-button">
                     
-                        <a  class="sidebar-button-link " href="https://github.com/usehun0625/" target="_blank" rel="noopener" title="GitHub">
+                        <a  class="sidebar-button-link " href="https://github.com/elaq0625/" target="_blank" rel="noopener" title="GitHub">
                     
                         <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
                         <span class="sidebar-button-desc">GitHub</span>
@@ -190,7 +190,7 @@
             
                 <li class="sidebar-button">
                     
-                        <a  class="sidebar-button-link " href="mailto:usehun0625@gmail.com" target="_blank" rel="noopener" title="Mail">
+                        <a  class="sidebar-button-link " href="mailto:elaq0625@gmail.com" target="_blank" rel="noopener" title="Mail">
                     
                         <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
                         <span class="sidebar-button-desc">Mail</span>
@@ -399,7 +399,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
                     title="Share on Facebook"
                     aria-label="Share on Facebook"
                 >
@@ -412,7 +412,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
                     title="Share on Twitter"
                     aria-label="Share on Twitter"
                 >
@@ -425,7 +425,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
                     title="Share on Google+"
                     aria-label="Share on Google+"
                 >
@@ -528,7 +528,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
                     title="Share on Facebook"
                     aria-label="Share on Facebook"
                 >
@@ -541,7 +541,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
                     title="Share on Twitter"
                     aria-label="Share on Twitter"
                 >
@@ -554,7 +554,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
                     title="Share on Google+"
                     aria-label="Share on Google+"
                 >
@@ -598,7 +598,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
                         aria-label="Share on Facebook"
                     >
                         <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
@@ -611,7 +611,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
                         aria-label="Share on Twitter"
                     >
                         <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
@@ -624,7 +624,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
                         aria-label="Share on Google+"
                     >
                         <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
@@ -697,14 +697,14 @@
     
         <script>
           var disqus_config = function() {
-            this.page.url = 'http://usehun0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/';
+            this.page.url = 'http://elaq0625.github.io/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/';
               
             this.page.identifier = '2019/08/27/AWS-CLI-기초-학습-정리/';
               
           };
           (function() {
             var d = document, s = d.createElement('script');
-            var disqus_shortname = 'usehun0625';
+            var disqus_shortname = 'elaq0625';
             s.src = '//' + disqus_shortname + '.disqus.com/embed.js';
 
             s.setAttribute('data-timestamp', +new Date());
