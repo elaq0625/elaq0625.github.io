@@ -1,0 +1,1306 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Kevin의 블로그">
+    <title>Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트 - Kevin의 블로그</title>
+    <meta name="author" content="Kevin">
+    
+    
+        <link rel="icon" href="http://usehun0625.github.io/assets/images/beer_favaicon.png">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n\n이벤트 데이터 수집 파이프 구축시 Data Stream을 사용할 경우, 샤드 분산을 고려해야한다.이 테스트는 샤드 분산을 위해 파티션키로 필드를 사용하는 경우, 필드 케이스별 테스트한 내용을 정리한다.\n\n테스트 환경 구성로컬 환경\nPython 3.7.4\nFluentd 1.7.4\nRuby 2.6.0\naws-cli 1.16.222\nMacOS Catalina\n\nKinesis Data Stream\nName : kevin-partition-key-ds-test\nShard\nShard 수 : 3\nShard 1개의 스펙\n쓰기 : 1 MB/초, 1000 레코드/초\n읽기 : 2 MB/초\n\n\n총 Shard 스펙\n쓰기 : 3 MB/초, 3000 레코드/초\n읽기 : 6 MB/초\n\n\n\n\n\nKinesis Data Firehose\nName : kevin-partition-key-df-test\nSource : Kinesis Data Stream(kevin-partition-key-ds-test)\nDestiantion\nAWS Elasticsearch(kevin-partition-key-es-test)\nIndex : kevin_shard_dispersion_test\nBuffer condition : 1 MB or 60 seconds\n\n\nS3\nBucket : kevin-bucket-test\nPrefix : kevin_shard_dispersion_test/\nBuffer condition : 1 MB or 60 seconds\n\n\n\n\n\nAmazon Elasticsearch\nName : kevin-partition-key-es-test\nEnd point : https://search-kevin-partition-key-es-test-vvftkr5fitlyycy3sx3y5skgcu.ap-northeast-2.es.amazonaws.com\nKibana : https://search-kevin-partition-key-es-test-vvftkr5fitlyycy3sx3y5skgcu.ap-northeast-2.es.amazonaws.com/_plugin/kibana/\n인스턴스 구성\n인스턴스 유형 : t2.medium.elasticsearch\n인스턴스 개수 : 2\n인스턴스별 일반 EBS(SSD) 10GB 각 1개\n테스트 인덱스 : kevin_shard_dispersion_test\n\n\n\nCloudWatch에 샤드 단위 “IncomingDataRecords” Metric 추가하기특정 샤드의 입력 데이터 레코드 수 확인을 위해 CloudWatch에 “IncomingDataRecords” Metric을 추가한다. 다음과 같은 명령으로 추가한다.\n12345678$ aws kinesis enable-enhanced-monitoring --stream-name kevin-partition-key-ds-test --shard-level-metrics \"IncomingRecords\"&#123;    \"StreamName\": \"kevin-partition-key-ds-test\",    \"CurrentShardLevelMetrics\": [],    \"DesiredShardLevelMetrics\": [        \"IncomingRecords\"    ]&#125;\n\n\nData Stream 단위의 “IncomingDataRecords” Metric 확인은 추가 비용이 발생하지 않는다.Shard 단위의 “IncomingDataRecords” Metric 확인은 추가 비용이 발생한다.자세한 내용은 아래의 링크를 통해 확인한다.\n\nhttps://docs.aws.amazon.com/ko_kr/streams/latest/dev/monitoring-with-cloudwatch.html\nhttps://aws.amazon.com/ko/cloudwatch/pricing/\n\n\n테스트 관련 데이터 스키마 확인사항수집하려는 데이터 스키마 샘플은 다음과 같다.\n12345678&#123;    \"board_id\" : 10,    \"playtime\" : 5,    \"minimum_play\" : \"Y\",    \"timestamp\" : \"2019-11-12T10:00:01Z\",    \"user_id\" : 1,    \"interest\" : 100&#125;\n\n필드별 값의 범위는 아래와 같다.\n\nboard_id : 1 ~ 1000만\nplaytime : 0 ~ 15\n*minimum_play *: playtime &gt; 7이면 minimum_play는 “Y”, palytime &lt;= 7이면 minimum_play는 “N”\n*timestamp *: 2019년 1월 1일 00시 00분 00초 ~ 2019년 11월 14일 23시 59분 59초\n*user_id *: 1 ~ 100만\n*interest *: 100 ~ 111 \n\nAmazon Kinesis Data Streams 용어 및 개념을 확인하면 Kinesis Stream의 파티션키는 String 타입이어야만 한다.테스트와 관련하여 Integer 타입 필드를 파티션키로 사용한다면 필드값을 String 타입으로 변환하여 사용한다.\n예시 : user_id를 파티션키로 사용하는 경우 테스트용 데이터 스키마12345678&#123;    &quot;board_id&quot; : 10,    &quot;playtime&quot; : 5,    &quot;minimum_play&quot; : &quot;Y&quot;,    &quot;timestamp&quot; : &quot;2019-11-12T10:00:01Z&quot;,    &quot;user_id&quot; : &quot;1&quot;,    &quot;interest&quot; : 100&#125;\n\n테스트 단계별 세부진행각각의 테스트 케이스는 다음과 같은 공통된 시나리오를 바탕으로 진행된다.\n\nFluentd 설정 및 실행\nData generator로 데이터 레코드 파일 생성\nShard 단위 입력 레코드 개수 확인\nDestination에 저장된 데이터 확인 (Optinal)\n\n아래에는 테스트 단계별 상세내용을 설명하고 있다.\nFluentd 설정 및 실행테스트는 다음과 같은 구조를 갖는 디렉터리를 생성하여 진행한다.\n123456kevin_partitionkey_shard_dispersion_test ### 프로젝트 디렉터리├── fluentd.log ### fluentd 로그 확인용 파일├── pos ### 포지션 파일 디렉터리├── shard_dispersion_test.config ### fluentd 설정 파일├── data_generator.py ### Data generator └── source ### Data generator로 생성하여 저장할 디렉터리\n\n프로젝트 디렉터리에 다음과 같은 fluentd 설정 파일을 추가한다.\n: shard_dispersion_test.config1234567891011121314151617181920&lt;source&gt;  @type tail  path kevin_partitionkey_shard_dispersion_test/source/*.log ### 프로젝트 디렉터리 경로  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos  tag shard_dispersion.test  &lt;parse&gt;    @type json  &lt;/parse&gt;  read_from_head true  refresh_interval 1s&lt;/source&gt;&lt;match shard_dispersion.*&gt;  @type kinesis_streams  region ap-northeast-2  stream_name kevin-partition-key-ds-test  &lt;buffer tag&gt;    flush_mode interval    flush_interval 10s  &lt;/buffer&gt;&lt;/match&gt;\n\nfluentd를 실행은 프로젝트 폴더에서 다음과 같은 명령으로 한다.\n1$ fluentd -c shard_dispersion_test.config -o fleuntd.log\n\nfluentd 동작확인을 위해 아래와 같은 명령으로 fluentd.log 파일을 테일링한다.\n1$ tail -f fleuntd.log\n\nData generator로 데이터 레코드 파일 생성프로젝트 디렉터리에서 가상환경을 구성하고 활성화 한다.\n12$ virtualenv --python=python3.7 .venv$ source .venv/bin/activate\n\n프로젝트 디렉터리에 다음과 같은 Data generator 코드 파일을 추가한다.\n\ndata_generator.py\n\nData generator는 다음과 같은 동작을 한다.\n\n\n랜덤 데이터를 생성하여 다음 경로에 파일로 저장한다.\n프로젝트 디렉터리/source/\n\n\n초당 1개의 데이터 파일을 생성한다.\nData generator는 2개의 인자를 입력받아 동작한다.\n1번째 인자(batch_count)는 파일단위 랜덤 데이터의 생성시간을 의미한다.(몇 초동안 생성시키는지)\n2번째 인자(line_count)는 파일당 랜덤 데이터의 수를 의미한다. (몇 개의 데이터 레코드를 생성시키는지)\n\n\n\n\nData generator의 동작확인을 위하여 다음과 같은 명령으로 파일을 생성한다.\n1$ python3 data_generator.py 10 5\n\n: Data generator로 파일 생성 확인123456789101112$ wc -l `find ./source -name '*.log' `       5 ./source/test9.log       5 ./source/test8.log       5 ./source/test6.log       5 ./source/test7.log       5 ./source/test5.log       5 ./source/test4.log       5 ./source/test0.log       5 ./source/test1.log       5 ./source/test3.log       5 ./source/test2.log      50 total\n\nShard 단위 입력 레코드 개수 확인aws kinesis list-shards 명령으로 Data Stream의 Shard ID를 확인한다.\n1234567891011121314151617181920212223242526272829303132333435$ aws kinesis list-shards --stream-name kevin-partition-key-ds-test&#123;    \"Shards\": [        &#123;            \"ShardId\": \"shardId-000000000000\",            \"HashKeyRange\": &#123;                \"EndingHashKey\": \"113427455640312821154458202477256070484\",                \"StartingHashKey\": \"0\"            &#125;,            \"SequenceNumberRange\": &#123;                \"StartingSequenceNumber\": \"49601380209882699883164686112423702323016597339734278146\"            &#125;        &#125;,        &#123;            \"ShardId\": \"shardId-000000000001\",            \"HashKeyRange\": &#123;                \"EndingHashKey\": \"226854911280625642308916404954512140969\",                \"StartingHashKey\": \"113427455640312821154458202477256070485\"            &#125;,            \"SequenceNumberRange\": &#123;                \"StartingSequenceNumber\": \"49601380209905000628363216735565238041289245701240258578\"            &#125;        &#125;,        &#123;            \"ShardId\": \"shardId-000000000002\",            \"HashKeyRange\": &#123;                \"EndingHashKey\": \"340282366920938463463374607431768211455\",                \"StartingHashKey\": \"226854911280625642308916404954512140970\"            &#125;,            \"SequenceNumberRange\": &#123;                \"StartingSequenceNumber\": \"49601380209927301373561747358706773759561894062746239010\"            &#125;        &#125;    ]&#125;\n\nShard 입력 레코드수를 확인하기 위해서는 aws cloudwatch get-metric-statistics 명령을 사용한다.\nShard 입력 레코드수 확인 예시\n\nshard_ID : shardId-000000000001\n시간 범위 : “2019-11-19T21:04:00+0900” ~ “2019-11-19T21:05:00+0900”\n간격 : 1분\n항목 : 합(Sum)\n\n위 예시와 같은 조건의 Shard 입력 레코드는 아래와 같은 명령을 확인한다.\n1234567891011$ aws cloudwatch get-metric-statistics --namespace \"AWS/Kinesis\" --metric-name \"IncomingRecords\" --dimensions Name=StreamName,Value=kevin-partition-key-ds-test Name=ShardId,Value=shardId-000000000000 --start-time=\"2019-11-19T21:04:00+0900\" --end-time=\"2019-11-19T21:05:00+0900\" --period 1 --statistics Sum&#123;    \"Datapoints\": [        &#123;            \"Timestamp\": \"2019-11-19T12:04:00Z\",            \"Average\": 17.0,            \"Unit\": \"Count\"        &#125;    ],    \"Label\": \"IncomingRecords\"&#125;\n\nDestination에 저장된 데이터 확인(Optional)Destination(Elasticsaerch, S3)에 저장된 데이터를 확인이 필요한 경우 아래와 같이 확인한다.\nElasticsearch 결과 확인elasticsearch 결과를 확인하기 위하여 다음과 같은 Kibana에 접속한다.\n\nKibana : https://search-kevin-partition-key-es-test-vvftkr5fitlyycy3sx3y5skgcu.ap-northeast-2.es.amazonaws.com/_plugin/kibana/\n\nDev Tools에서 다음과 같은 명령으로 저장된 다큐먼트의 개수를 확인한다.\n12345678910GET kevin_shard_dispersion_test/_count&#123;  \"count\" : 50,  \"_shards\" : &#123;    \"total\" : 5,    \"successful\" : 5,    \"skipped\" : 0,    \"failed\" : 0  &#125;&#125;\n\nS3 결과 확인S3 결과를 확인하기 위하여 다음과 같은 aws cli 명령으로 다운로드한다.\n1234$ aws s3 cp s3://kevin-bucket-test/kevin_shard_dispersion_test/ ./s3_result/ --recursivedownload: s3://kevin-bucket-test/kevin_shard_dispersion_test/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-9a267748-f2f0-43e5-9499-65af204babc4 to s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-9a267748-f2f0-43e5-9499-65af204babc4download: s3://kevin-bucket-test/kevin_shard_dispersion_test/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-1a79c91c-ac09-4406-825a-26f2586d7ff6 to s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-1a79c91c-ac09-4406-825a-26f2586d7ff6download: s3://kevin-bucket-test/kevin_shard_dispersion_test/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-83415104-a2a6-4735-a82a-c4419b2f8ee9 to s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-83415104-a2a6-4735-a82a-c4419b2f8ee9\n\n다운로드한 파일의 라인수는 다음과 같이 확인한다.\n12345$ wc -l `find ./s3_result -name 'kevin-partition-*' `      16 ./s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-9a267748-f2f0-43e5-9499-65af204babc4      17 ./s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-1a79c91c-ac09-4406-825a-26f2586d7ff6      17 ./s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-83415104-a2a6-4735-a82a-c4419b2f8ee9      50 total\n\n\n테스트 케이스 : user_id 필드user_id 필드를 파티션키로 사용하면 다음과 같은 사항을 고려해야한다.\n\nuser_id는 1 ~ 100만 사이의 값을 갖는다.\nKinesis Stream 파티션키는 String 타입이어야 한다.\n\n이번 테스트에서 user_id 필드는 값을 생성한후 String 타입으로 변환한다.다음은 user_id 필드 String 타입 변환이 반영된 Data generator 코드이다.\n\ndata_generator_user_id.py이번 테스트에서는 data_generate_user_id.py 코드를 사용하여 데이터를 생성한다.\n\nFluentd 설정 및 실행Output Plugin에 partition 키를 user_id로 설정하는 옵션을 추가한다.다음은 partition 키를 user_id로 설정하는 옵션을 추가한 설정 파일이다.\n: shard_dispersion_test.config123456789101112131415161718192021&lt;source&gt;  @type tail  path kevin_partitionkey_shard_dispersion_test/source/*.log  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos  tag shard_dispersion.test  &lt;parse&gt;    @type json  &lt;/parse&gt;  read_from_head true  refresh_interval 1s&lt;/source&gt;&lt;match shard_dispersion.*&gt;  @type kinesis_streams  region ap-northeast-2  stream_name kevin-partition-key-ds-test  partition_key user_id  &lt;buffer tag&gt;    flush_mode interval    flush_interval 10s  &lt;/buffer&gt;&lt;/match&gt;\n\nfluentd를 실행한다.\n1$ fluentd -c shard_dispersion_test.config -o fleuntd.log\n\nData generator로 데이터 레코드 파일 생성10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.\n1$ python3 data_generator_user_id.py 600 100 ### 600초동안, 파일당 데이터 레코드 100개\n\nShard 입력 레코드 개수 확인아래는 aws cloud watch 명령으로 샤드별 분단위 입력 레코드 합을 구한 것이다.\n\nShard 분단위 입력 레코드 개수\n\n다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.\n\n\n\n경과시간(분)\n1번째 샤드\n2번째 샤드\n3번째 샤드\n\n\n\n+1분\n1100\n1107\n1093\n\n\n+2분\n2209\n2179\n2212\n\n\n+3분\n1813\n1794\n1893\n\n\n+4분\n2167\n2167\n2166\n\n\n+5분\n1993\n1969\n2038\n\n\n+6분\n1918\n2066\n2016\n\n\n+7분\n1961\n1985\n2054\n\n\n+8분\n1978\n2055\n1967\n\n\n+9분\n1783\n1786\n1831\n\n\n+10분\n2202\n2198\n2200\n\n\n+11분\n698\n699\n703\n\n\n\n3개 샤드에 입력된 데이터의 개수가 균등하게 데이터 레코드 입력이 이루어진 것을 알 수 있다.\n\n\n테스트 케이스 : minimum_play 필드 - 단일 대문자 (“Y” or “N”)Fluentd 설정 및 실행Output Plugin에 partition 키를 minimum_play로 변경한다.다음은 partition 키를 minimum_play로 변경한 설정 파일이다.\n123456789101112131415161718192021&lt;source&gt;  @type tail  path kevin_partitionkey_shard_dispersion_test/source/*.log  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos  tag shard_dispersion.test  &lt;parse&gt;    @type json  &lt;/parse&gt;  read_from_head true  refresh_interval 1s&lt;/source&gt;&lt;match shard_dispersion.*&gt;  @type kinesis_streams  region ap-northeast-2  stream_name kevin-partition-key-ds-test  partition_key user_id  &lt;buffer tag&gt;    flush_mode interval    flush_interval 10s  &lt;/buffer&gt;&lt;/match&gt;\n\nfluentd를 실행한다.\n1$ fluentd -c shard_dispersion_test.config -o fleuntd.log\n\nData generator로 데이터 레코드 파일 생성10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.\n1$ python3 data_generator.py 600 100 ### 600초동안, 파일당 데이터 레코드 100개\n\nShard 입력 레코드 개수 확인아래는 aws cloud watch 명령으로 Shard별 분단위 입력 레코드 합을 구한 것이다.\n\nShard 분단위 입력 레코드 개수\n\n다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.\n\n\n\n경과시간(분)\n1번째 샤드\n2번째 샤드\n3번째 샤드\n\n\n\n+1분\n0\n2000\n0\n\n\n+2분\n0\n6000\n0\n\n\n+3분\n0\n6000\n0\n\n\n+4분\n0\n6000\n0\n\n\n+5분\n0\n6000\n0\n\n\n+6분\n0\n6000\n0\n\n\n+7분\n0\n6000\n0\n\n\n+8분\n0\n6000\n0\n\n\n+9분\n0\n5900\n0\n\n\n+10분\n0\n6000\n0\n\n\n+11분\n0\n4100\n0\n\n\n\n2번째 샤드에만 데이터 레코드가 입력된 것을 알 수 있다.\n\n\n테스트 케이스 : minimum_play 필드 - 단일 소문자 (“y” or “n”)다른 필드는 동일하되 minimum_play 필드만 단일 소문자 값을 갖는 경우를 테스트한다.\n1*minimum_play* : playtime &gt; 7이면 minimum_play는 \"y\", palytime &lt;= 7이면 minimum_play는 \"n\"\n\nData generator에서 minimum_play 값 생성시 ‘y’ 또는 ‘n’ 값이 생성되도록 코드를 변경한다.\n다음은 minimum_play 값이 단일 소문자로 생성되는 Data generator 코드이다.\n\ndata_generator_minimum_play_single_lower_case.py.py\n\nFluentd 설정 및 실행Output Plugin에 partition 키를 minimum_play로 변경한다.다음은 partition 키를 minimum_play로 변경한 설정 파일이다.\n123456789101112131415161718192021&lt;source&gt;  @type tail  path kevin_partitionkey_shard_dispersion_test/source/*.log  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos  tag shard_dispersion.test  &lt;parse&gt;    @type json  &lt;/parse&gt;  read_from_head true  refresh_interval 1s&lt;/source&gt;&lt;match shard_dispersion.*&gt;  @type kinesis_streams  region ap-northeast-2  stream_name kevin-partition-key-ds-test  partition_key user_id  &lt;buffer tag&gt;    flush_mode interval    flush_interval 10s  &lt;/buffer&gt;&lt;/match&gt;\n\nfluentd를 실행한다.\n1$ fluentd -c shard_dispersion_test.config -o fleuntd.log\n\nData generator로 데이터 레코드 파일 생성10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.\n1$ python3 data_generator_minimum_play_single_lower_case.py 600 100 ### 600초동안, 파일당 데이터 레코드 100개\n\nShard 입력 레코드 개수 확인아래는 aws cloud watch 명령으로 Shard별 분단위 입력 레코드 합을 구한 것이다.\n\nShard 분단위 입력 레코드 개수\n\n다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.\n\n\n\n경과시간(분)\n1번째 샤드\n2번째 샤드\n3번째 샤드\n\n\n\n+1분\n568\n532\n0\n\n\n+2분\n3262\n3338\n0\n\n\n+3분\n2764\n2736\n0\n\n\n+4분\n3260\n3340\n0\n\n\n+5분\n2726\n2774\n0\n\n\n+6분\n3219\n3381\n0\n\n\n+7분\n2672\n2728\n0\n\n\n+8분\n3320\n3280\n0\n\n\n+9분\n2695\n2705\n0\n\n\n+10분\n2691\n2809\n0\n\n\n+11분\n2588\n2612\n0\n\n\n\n1번째, 2번째 샤드에 균등하게 데이터 레코드가 입력된 것을 알 수 있다.\n\n\n테스트 케이스 : minimum_play 필드 - 다중 대문자 (“TRUE” or “FALSE”)다른 필드는 동일하되 minimum_play 필드만 다중 대문자 값을 갖는 경우를 테스트한다.\n1minimum_play : playtime &gt; 7이면 minimum_play는 \"TRUE\", palytime &lt;= 7이면 minimum_play는 \"FALSE\"\n\nData generator에서 minimum_play 값 생성시 ‘TRUE’ 또는 ‘FALSE’ 값이 생성되도록 코드를 변경한다.다음은 minimum_play 값이 다중 대문자로 생성되는 Data generator 코드이다.\n\ndata_generator_minimum_play_multi_upper_case.py\n\nFluentd 설정 및 실행Output Plugin에 partition 키를 minimum_play로 변경한다.다음은 partition 키를 minimum_play로 변경한 설정 파일이다.\n123456789101112131415161718192021&lt;source&gt;  @type tail  path kevin_partitionkey_shard_dispersion_test/source/*.log  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos  tag shard_dispersion.test  &lt;parse&gt;    @type json  &lt;/parse&gt;  read_from_head true  refresh_interval 1s&lt;/source&gt;&lt;match shard_dispersion.*&gt;  @type kinesis_streams  region ap-northeast-2  stream_name kevin-partition-key-ds-test  partition_key user_id  &lt;buffer tag&gt;    flush_mode interval    flush_interval 10s  &lt;/buffer&gt;&lt;/match&gt;\n\nfluentd를 실행한다.\n1$ fluentd -c shard_dispersion_test.config -o fleuntd.log\n\nData generator로 데이터 레코드 파일 생성10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.\n1$ python3 data_generator_minimum_play_multi_upper_case.py 600 100 ### 600초동안, 파일당 데이터 레코드 100개\n\nShard 입력 레코드 개수 확인아래는 aws cloud watch 명령으로 Shard별 분단위 입력 레코드 합을 구한 것이다.\n\nShard 분단위 입력 레코드 개수\n\n다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.\n\n\n\n경과시간(분)\n1번째 샤드\n2번째 샤드\n3번째 샤드\n\n\n\n+1분\n0\n3285\n3315\n\n\n+2분\n0\n2721\n2779\n\n\n+3분\n0\n2718\n2782\n\n\n+4분\n0\n3062\n3038\n\n\n+5분\n0\n3038\n2962\n\n\n+6분\n0\n2980\n3020\n\n\n+7분\n0\n3293\n3207\n\n\n+8분\n0\n2743\n2757\n\n\n+9분\n0\n3139\n3061\n\n\n+10분\n0\n2983\n3017\n\n\n+11분\n0\n48\n52\n\n\n\n2번째, 3번째 샤드에 균등하게 데이터 레코드가 입력된 것을 알 수 있다.\n\n\n테스트 케이스 : minimum_play 필드 - 다중 소문자 (“true” or “false”)다른 필드는 동일하되 minimum_play 필드만 다중 소문자 값을 갖는 경우를 테스트한다.\n1minimum_play : playtime &gt; 7이면 minimum_play는 \"true\", palytime &lt;= 7이면 minimum_play는 \"false\"\n\nData generator에서 minimum_play 값 생성시 ‘true’ 또는 ‘false’ 값이 생성되도록 코드를 변경한다.\n다음은 minimum_play 값이 다중 소문자로 생성되는 Data generator 코드이다.\n\ndata_generator_minimum_play_multi_lower_case.py\n\nFluentd 설정 및 실행Output Plugin에 partition 키를 minimum_play로 변경한다.다음은 partition 키를 minimum_play로 변경한 설정 파일이다.\n123456789101112131415161718192021&lt;source&gt;  @type tail  path kevin_partitionkey_shard_dispersion_test/source/*.log ### 프로젝트 디렉터리  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos ### 프로젝트 디렉터리  tag shard_dispersion.test  &lt;parse&gt;    @type json  &lt;/parse&gt;  read_from_head true  refresh_interval 1s&lt;/source&gt;&lt;match shard_dispersion.*&gt;  @type kinesis_streams  region ap-northeast-2  stream_name kevin-partition-key-ds-test  partition_key user_id  &lt;buffer tag&gt;    flush_mode interval    flush_interval 10s  &lt;/buffer&gt;&lt;/match&gt;\n\nfluentd를 실행한다.\n1$ fluentd -c shard_dispersion_test.config -o fleuntd.log\n\nData generator로 데이터 레코드 파일 생성10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.\n1$ python3 data_generator_minimum_play_multi_lower_case.py 600 100 ### 600초동안, 파일당 데이터 레코드 100개\n\nShard 입력 레코드 개수 확인아래는 aws cloud watch 명령으로 Shard별 분단위 입력 레코드 합을 구한 것이다.\n\nShard 분단위 입력 레코드 개수\n\n다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.\n\n\n\n경과시간(분)\n1번째 샤드\n2번째 샤드\n3번째 샤드\n\n\n\n+1분\n0\n1131\n1069\n\n\n+2분\n0\n2670\n2830\n\n\n+3분\n0\n2764\n2736\n\n\n+4분\n0\n3263\n3337\n\n\n+5분\n0\n2817\n2683\n\n\n+6분\n0\n3290\n3310\n\n\n+7분\n0\n2750\n2750\n\n\n+8분\n0\n3291\n3309\n\n\n+9분\n0\n2554\n2646\n\n\n+10분\n0\n3213\n3187\n\n\n+11분\n0\n2197\n2203\n\n\n\n2번째, 3번째 샤드에 균등하게 데이터 레코드가 입력된 것을 알 수 있다.\n\n\n테스트 결과\n필드를 파티션키로 선정시 적어도 필드의 도메인 카운트가 샤드수보다 커야한다.\n\n테스트 케이스 : user_id 필드에서 필드의 도메인 카운트(100만)는 샤드수(3)보다 크며, 3개 샤드 모두에서 데이터 레코드가 입력되었다.\n테스트 케이스 : minimum_play  필드 - 단일 소문자의 도메인 카운트(2)는 샤드수(3)보다 작으며, 3개 샤드중 2개 샤드에 데이터 레코드가 입력되었다.\n\n\n\n필드의 도메인 카운트가 동일하여도 필드값에 따라 샤드 분산이 이루어지지 않을 수도 있다.\n\n테스트 케이스 : minimum_play  필드 - 단일 대문자는 3개 샤드중 1개 샤드만 데이터 레코드가 입력되었다.\n테스트 케이스 : minimum_play  필드 - 단일 소문자는 3개 샤드중 2개 샤드에 데이터 레코드가 입력되었다.\n\n\n","dateCreated":"2019-11-27T16:01:50+09:00","dateModified":"2020-03-07T21:07:56+09:00","datePublished":"2019-11-27T16:01:50+09:00","description":"\n\n이벤트 데이터 수집 파이프 구축시 Data Stream을 사용할 경우, 샤드 분산을 고려해야한다.이 테스트는 샤드 분산을 위해 파티션키로 필드를 사용하는 경우, 필드 케이스별 테스트한 내용을 정리한다.","headline":"Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/","keywords":"Elasticsearch, Kinesis Data Stream, Kinesis Data Firehose, S3"}</script>
+    <meta name="description" content="이벤트 데이터 수집 파이프 구축시 Data Stream을 사용할 경우, 샤드 분산을 고려해야한다.이 테스트는 샤드 분산을 위해 파티션키로 필드를 사용하는 경우, 필드 케이스별 테스트한 내용을 정리한다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트">
+<meta property="og:url" content="http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/index.html">
+<meta property="og:site_name" content="Kevin의 블로그">
+<meta property="og:description" content="이벤트 데이터 수집 파이프 구축시 Data Stream을 사용할 경우, 샤드 분산을 고려해야한다.이 테스트는 샤드 분산을 위해 파티션키로 필드를 사용하는 경우, 필드 케이스별 테스트한 내용을 정리한다.">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-11-27T07:01:50.000Z">
+<meta property="article:modified_time" content="2020-03-07T12:07:56.904Z">
+<meta property="article:author" content="Kevin">
+<meta property="article:tag" content="Elasticsearch">
+<meta property="article:tag" content="Kinesis Data Stream">
+<meta property="article:tag" content="Kinesis Data Firehose">
+<meta property="article:tag" content="S3">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://usehun0625.github.io/assets/images/beer.jpg"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="5">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a
+            class="header-title-link"
+            href="/"
+            aria-label=""
+        >
+            Kevin의 블로그
+        </a>
+    </div>
+    
+        
+            <a
+                class="header-right-picture "
+                href="#about"
+                aria-label="Open the link: /#about"
+            >
+        
+        
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="5">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a
+                    href="/#about"
+                    aria-label="Read more about the author"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                </a>
+                <h4 class="sidebar-profile-name">Kevin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/"
+                            title="홈"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">홈</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="카테고리"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="태그"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link open-algolia-search"
+                             href="/all-archives"
+                            
+                            title="아카이브"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/usehun0625/" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:usehun0625@gmail.com" target="_blank" rel="noopener" title="Mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="5"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2019-11-27T16:01:50+09:00">
+	
+		    Nov 27, 2019
+    	
+    </time>
+    
+        <span>in </span>
+        
+    <a class="category-link" href="/categories/%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%88%98%EC%A7%91/">데이터 수집</a>
+
+
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경-구성"><span class="toc-text">테스트 환경 구성</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#로컬-환경"><span class="toc-text">로컬 환경</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Kinesis-Data-Stream"><span class="toc-text">Kinesis Data Stream</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Kinesis-Data-Firehose"><span class="toc-text">Kinesis Data Firehose</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Amazon-Elasticsearch"><span class="toc-text">Amazon Elasticsearch</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CloudWatch에-샤드-단위-“IncomingDataRecords”-Metric-추가하기"><span class="toc-text">CloudWatch에 샤드 단위 “IncomingDataRecords” Metric 추가하기</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-관련-데이터-스키마-확인사항"><span class="toc-text">테스트 관련 데이터 스키마 확인사항</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-단계별-세부진행"><span class="toc-text">테스트 단계별 세부진행</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-설정-및-실행"><span class="toc-text">Fluentd 설정 및 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Data-generator로-데이터-레코드-파일-생성"><span class="toc-text">Data generator로 데이터 레코드 파일 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Shard-단위-입력-레코드-개수-확인"><span class="toc-text">Shard 단위 입력 레코드 개수 확인</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Destination에-저장된-데이터-확인-Optional"><span class="toc-text">Destination에 저장된 데이터 확인(Optional)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Elasticsearch-결과-확인"><span class="toc-text">Elasticsearch 결과 확인</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#S3-결과-확인"><span class="toc-text">S3 결과 확인</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-케이스-user-id-필드"><span class="toc-text">테스트 케이스 : user_id 필드</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-설정-및-실행-1"><span class="toc-text">Fluentd 설정 및 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Data-generator로-데이터-레코드-파일-생성-1"><span class="toc-text">Data generator로 데이터 레코드 파일 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Shard-입력-레코드-개수-확인"><span class="toc-text">Shard 입력 레코드 개수 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-케이스-minimum-play-필드-단일-대문자-“Y”-or-“N”"><span class="toc-text">테스트 케이스 : minimum_play 필드 - 단일 대문자 (“Y” or “N”)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-설정-및-실행-2"><span class="toc-text">Fluentd 설정 및 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Data-generator로-데이터-레코드-파일-생성-2"><span class="toc-text">Data generator로 데이터 레코드 파일 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Shard-입력-레코드-개수-확인-1"><span class="toc-text">Shard 입력 레코드 개수 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-케이스-minimum-play-필드-단일-소문자-“y”-or-“n”"><span class="toc-text">테스트 케이스 : minimum_play 필드 - 단일 소문자 (“y” or “n”)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-설정-및-실행-3"><span class="toc-text">Fluentd 설정 및 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Data-generator로-데이터-레코드-파일-생성-3"><span class="toc-text">Data generator로 데이터 레코드 파일 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Shard-입력-레코드-개수-확인-2"><span class="toc-text">Shard 입력 레코드 개수 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-케이스-minimum-play-필드-다중-대문자-“TRUE”-or-“FALSE”"><span class="toc-text">테스트 케이스 : minimum_play 필드 - 다중 대문자 (“TRUE” or “FALSE”)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-설정-및-실행-4"><span class="toc-text">Fluentd 설정 및 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Data-generator로-데이터-레코드-파일-생성-4"><span class="toc-text">Data generator로 데이터 레코드 파일 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Shard-입력-레코드-개수-확인-3"><span class="toc-text">Shard 입력 레코드 개수 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-케이스-minimum-play-필드-다중-소문자-“true”-or-“false”"><span class="toc-text">테스트 케이스 : minimum_play 필드 - 다중 소문자 (“true” or “false”)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-설정-및-실행-5"><span class="toc-text">Fluentd 설정 및 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Data-generator로-데이터-레코드-파일-생성-5"><span class="toc-text">Data generator로 데이터 레코드 파일 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Shard-입력-레코드-개수-확인-4"><span class="toc-text">Shard 입력 레코드 개수 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-결과"><span class="toc-text">테스트 결과</span></a></li></ol>
+
+<p>이벤트 데이터 수집 파이프 구축시 Data Stream을 사용할 경우, 샤드 분산을 고려해야한다.<br>이 테스트는 샤드 분산을 위해 파티션키로 필드를 사용하는 경우, 필드 케이스별 테스트한 내용을 정리한다.</p>
+<a id="more"></a>
+<h1 id="테스트-환경-구성"><a href="#테스트-환경-구성" class="headerlink" title="테스트 환경 구성"></a>테스트 환경 구성</h1><h2 id="로컬-환경"><a href="#로컬-환경" class="headerlink" title="로컬 환경"></a>로컬 환경</h2><ul>
+<li>Python 3.7.4</li>
+<li>Fluentd 1.7.4</li>
+<li>Ruby 2.6.0</li>
+<li>aws-cli 1.16.222</li>
+<li>MacOS Catalina</li>
+</ul>
+<h2 id="Kinesis-Data-Stream"><a href="#Kinesis-Data-Stream" class="headerlink" title="Kinesis Data Stream"></a>Kinesis Data Stream</h2><ul>
+<li>Name : kevin-partition-key-ds-test</li>
+<li>Shard<ul>
+<li>Shard 수 : 3</li>
+<li>Shard 1개의 스펙<ul>
+<li>쓰기 : 1 MB/초, 1000 레코드/초</li>
+<li>읽기 : 2 MB/초</li>
+</ul>
+</li>
+<li>총 Shard 스펙<ul>
+<li>쓰기 : 3 MB/초, 3000 레코드/초</li>
+<li>읽기 : 6 MB/초</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="Kinesis-Data-Firehose"><a href="#Kinesis-Data-Firehose" class="headerlink" title="Kinesis Data Firehose"></a>Kinesis Data Firehose</h2><ul>
+<li>Name : kevin-partition-key-df-test</li>
+<li>Source : Kinesis Data Stream(kevin-partition-key-ds-test)</li>
+<li>Destiantion<ul>
+<li>AWS Elasticsearch(kevin-partition-key-es-test)<ul>
+<li>Index : kevin_shard_dispersion_test</li>
+<li>Buffer condition : 1 MB or 60 seconds</li>
+</ul>
+</li>
+<li>S3<ul>
+<li>Bucket : kevin-bucket-test</li>
+<li>Prefix : kevin_shard_dispersion_test/</li>
+<li>Buffer condition : 1 MB or 60 seconds</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="Amazon-Elasticsearch"><a href="#Amazon-Elasticsearch" class="headerlink" title="Amazon Elasticsearch"></a>Amazon Elasticsearch</h2><ul>
+<li>Name : kevin-partition-key-es-test</li>
+<li>End point : <a href="https://search-kevin-partition-key-es-test-vvftkr5fitlyycy3sx3y5skgcu.ap-northeast-2.es.amazonaws.com" target="_blank" rel="noopener">https://search-kevin-partition-key-es-test-vvftkr5fitlyycy3sx3y5skgcu.ap-northeast-2.es.amazonaws.com</a></li>
+<li>Kibana : <a href="https://search-kevin-partition-key-es-test-vvftkr5fitlyycy3sx3y5skgcu.ap-northeast-2.es.amazonaws.com/_plugin/kibana/" target="_blank" rel="noopener">https://search-kevin-partition-key-es-test-vvftkr5fitlyycy3sx3y5skgcu.ap-northeast-2.es.amazonaws.com/_plugin/kibana/</a></li>
+<li>인스턴스 구성<ul>
+<li>인스턴스 유형 : t2.medium.elasticsearch</li>
+<li>인스턴스 개수 : 2</li>
+<li>인스턴스별 일반 EBS(SSD) 10GB 각 1개</li>
+<li>테스트 인덱스 : kevin_shard_dispersion_test</li>
+</ul>
+</li>
+</ul>
+<h2 id="CloudWatch에-샤드-단위-“IncomingDataRecords”-Metric-추가하기"><a href="#CloudWatch에-샤드-단위-“IncomingDataRecords”-Metric-추가하기" class="headerlink" title="CloudWatch에 샤드 단위 “IncomingDataRecords” Metric 추가하기"></a>CloudWatch에 샤드 단위 “IncomingDataRecords” Metric 추가하기</h2><p>특정 샤드의 입력 데이터 레코드 수 확인을 위해 CloudWatch에 “IncomingDataRecords” Metric을 추가한다. 다음과 같은 명령으로 추가한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ aws kinesis <span class="built_in">enable</span>-enhanced-monitoring --stream-name kevin-partition-key-ds-test --shard-level-metrics <span class="string">"IncomingRecords"</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"StreamName"</span>: <span class="string">"kevin-partition-key-ds-test"</span>,</span><br><span class="line">    <span class="string">"CurrentShardLevelMetrics"</span>: [],</span><br><span class="line">    <span class="string">"DesiredShardLevelMetrics"</span>: [</span><br><span class="line">        <span class="string">"IncomingRecords"</span></span><br><span class="line">    ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Data Stream 단위의 “IncomingDataRecords” Metric 확인은 추가 비용이 발생하지 않는다.<br>Shard 단위의 “IncomingDataRecords” Metric 확인은 추가 비용이 발생한다.<br>자세한 내용은 아래의 링크를 통해 확인한다.</p>
+<ul>
+<li><a href="https://docs.aws.amazon.com/ko_kr/streams/latest/dev/monitoring-with-cloudwatch.html" target="_blank" rel="noopener">https://docs.aws.amazon.com/ko_kr/streams/latest/dev/monitoring-with-cloudwatch.html</a></li>
+<li><a href="https://aws.amazon.com/ko/cloudwatch/pricing/" target="_blank" rel="noopener">https://aws.amazon.com/ko/cloudwatch/pricing/</a></li>
+</ul>
+</blockquote>
+<h1 id="테스트-관련-데이터-스키마-확인사항"><a href="#테스트-관련-데이터-스키마-확인사항" class="headerlink" title="테스트 관련 데이터 스키마 확인사항"></a>테스트 관련 데이터 스키마 확인사항</h1><p>수집하려는 데이터 스키마 샘플은 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="string">"board_id"</span> : 10,</span><br><span class="line">    <span class="string">"playtime"</span> : 5,</span><br><span class="line">    <span class="string">"minimum_play"</span> : <span class="string">"Y"</span>,</span><br><span class="line">    <span class="string">"timestamp"</span> : <span class="string">"2019-11-12T10:00:01Z"</span>,</span><br><span class="line">    <span class="string">"user_id"</span> : 1,</span><br><span class="line">    <span class="string">"interest"</span> : 100</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>필드별 값의 범위는 아래와 같다.</p>
+<ul>
+<li><em>board_id</em> : 1 ~ 1000만</li>
+<li><em>playtime</em> : 0 ~ 15</li>
+<li>*minimum_play *: playtime &gt; 7이면 minimum_play는 “Y”, palytime &lt;= 7이면 minimum_play는 “N”</li>
+<li>*timestamp *: 2019년 1월 1일 00시 00분 00초 ~ 2019년 11월 14일 23시 59분 59초</li>
+<li>*user_id *: 1 ~ 100만</li>
+<li>*interest *: 100 ~ 111 </li>
+</ul>
+<p><a href="https://docs.aws.amazon.com/ko_kr/streams/latest/dev/key-concepts.html" target="_blank" rel="noopener">Amazon Kinesis Data Streams 용어 및 개념</a>을 확인하면 Kinesis Stream의 파티션키는 String 타입이어야만 한다.<br>테스트와 관련하여 Integer 타입 필드를 파티션키로 사용한다면 필드값을 String 타입으로 변환하여 사용한다.</p>
+<figure class="highlight plain"><figcaption><span>예시 : user_id를 파티션키로 사용하는 경우 테스트용 데이터 스키마</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    &quot;board_id&quot; : 10,</span><br><span class="line">    &quot;playtime&quot; : 5,</span><br><span class="line">    &quot;minimum_play&quot; : &quot;Y&quot;,</span><br><span class="line">    &quot;timestamp&quot; : &quot;2019-11-12T10:00:01Z&quot;,</span><br><span class="line">    &quot;user_id&quot; : &quot;1&quot;,</span><br><span class="line">    &quot;interest&quot; : 100</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="테스트-단계별-세부진행"><a href="#테스트-단계별-세부진행" class="headerlink" title="테스트 단계별 세부진행"></a>테스트 단계별 세부진행</h1><p>각각의 테스트 케이스는 다음과 같은 공통된 시나리오를 바탕으로 진행된다.</p>
+<ol>
+<li>Fluentd 설정 및 실행</li>
+<li>Data generator로 데이터 레코드 파일 생성</li>
+<li>Shard 단위 입력 레코드 개수 확인</li>
+<li>Destination에 저장된 데이터 확인 (Optinal)</li>
+</ol>
+<p>아래에는 테스트 단계별 상세내용을 설명하고 있다.</p>
+<h2 id="Fluentd-설정-및-실행"><a href="#Fluentd-설정-및-실행" class="headerlink" title="Fluentd 설정 및 실행"></a>Fluentd 설정 및 실행</h2><p>테스트는 다음과 같은 구조를 갖는 디렉터리를 생성하여 진행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">kevin_partitionkey_shard_dispersion_test <span class="comment">### 프로젝트 디렉터리</span></span><br><span class="line">├── fluentd.log <span class="comment">### fluentd 로그 확인용 파일</span></span><br><span class="line">├── pos <span class="comment">### 포지션 파일 디렉터리</span></span><br><span class="line">├── shard_dispersion_test.config <span class="comment">### fluentd 설정 파일</span></span><br><span class="line">├── data_generator.py <span class="comment">### Data generator </span></span><br><span class="line">└── <span class="built_in">source</span> <span class="comment">### Data generator로 생성하여 저장할 디렉터리</span></span><br></pre></td></tr></table></figure>
+
+<p>프로젝트 디렉터리에 다음과 같은 fluentd 설정 파일을 추가한다.</p>
+<figure class="highlight bash"><figcaption><span>: shard_dispersion_test.config</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">  @<span class="built_in">type</span> tail</span><br><span class="line">  path kevin_partitionkey_shard_dispersion_test/<span class="built_in">source</span>/*.<span class="built_in">log</span> <span class="comment">### 프로젝트 디렉터리 경로</span></span><br><span class="line">  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos</span><br><span class="line">  tag shard_dispersion.test</span><br><span class="line">  &lt;parse&gt;</span><br><span class="line">    @<span class="built_in">type</span> json</span><br><span class="line">  &lt;/parse&gt;</span><br><span class="line">  read_from_head <span class="literal">true</span></span><br><span class="line">  refresh_interval 1s</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">&lt;match shard_dispersion.*&gt;</span><br><span class="line">  @<span class="built_in">type</span> kinesis_streams</span><br><span class="line">  region ap-northeast-2</span><br><span class="line">  stream_name kevin-partition-key-ds-test</span><br><span class="line">  &lt;buffer tag&gt;</span><br><span class="line">    flush_mode interval</span><br><span class="line">    flush_interval 10s</span><br><span class="line">  &lt;/buffer&gt;</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>fluentd를 실행은 프로젝트 폴더에서 다음과 같은 명령으로 한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ fluentd -c shard_dispersion_test.config -o fleuntd.log</span><br></pre></td></tr></table></figure>
+
+<p>fluentd 동작확인을 위해 아래와 같은 명령으로 fluentd.log 파일을 테일링한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ tail -f fleuntd.log</span><br></pre></td></tr></table></figure>
+
+<h2 id="Data-generator로-데이터-레코드-파일-생성"><a href="#Data-generator로-데이터-레코드-파일-생성" class="headerlink" title="Data generator로 데이터 레코드 파일 생성"></a>Data generator로 데이터 레코드 파일 생성</h2><p>프로젝트 디렉터리에서 가상환경을 구성하고 활성화 한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ virtualenv --python=python3.7 .venv</span><br><span class="line">$ <span class="built_in">source</span> .venv/bin/activate</span><br></pre></td></tr></table></figure>
+
+<p>프로젝트 디렉터리에 다음과 같은 Data generator 코드 파일을 추가한다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/data_generator.py" target="_blank">data_generator.py</a></li>
+</ul>
+<p>Data generator는 다음과 같은 동작을 한다.</p>
+<blockquote>
+<ul>
+<li>랜덤 데이터를 생성하여 다음 경로에 파일로 저장한다.<ul>
+<li>프로젝트 디렉터리/source/</li>
+</ul>
+</li>
+<li>초당 1개의 데이터 파일을 생성한다.</li>
+<li>Data generator는 2개의 인자를 입력받아 동작한다.<ul>
+<li>1번째 인자(batch_count)는 파일단위 랜덤 데이터의 생성시간을 의미한다.(몇 초동안 생성시키는지)</li>
+<li>2번째 인자(line_count)는 파일당 랜덤 데이터의 수를 의미한다. (몇 개의 데이터 레코드를 생성시키는지)</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<p>Data generator의 동작확인을 위하여 다음과 같은 명령으로 파일을 생성한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ python3 data_generator.py 10 5</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><figcaption><span>: Data generator로 파일 생성 확인</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ wc -l `find ./<span class="built_in">source</span> -name <span class="string">'*.log'</span> `</span><br><span class="line">       5 ./<span class="built_in">source</span>/test9.log</span><br><span class="line">       5 ./<span class="built_in">source</span>/test8.log</span><br><span class="line">       5 ./<span class="built_in">source</span>/test6.log</span><br><span class="line">       5 ./<span class="built_in">source</span>/test7.log</span><br><span class="line">       5 ./<span class="built_in">source</span>/test5.log</span><br><span class="line">       5 ./<span class="built_in">source</span>/test4.log</span><br><span class="line">       5 ./<span class="built_in">source</span>/test0.log</span><br><span class="line">       5 ./<span class="built_in">source</span>/test1.log</span><br><span class="line">       5 ./<span class="built_in">source</span>/test3.log</span><br><span class="line">       5 ./<span class="built_in">source</span>/test2.log</span><br><span class="line">      50 total</span><br></pre></td></tr></table></figure>
+
+<h2 id="Shard-단위-입력-레코드-개수-확인"><a href="#Shard-단위-입력-레코드-개수-확인" class="headerlink" title="Shard 단위 입력 레코드 개수 확인"></a>Shard 단위 입력 레코드 개수 확인</h2><p>aws kinesis list-shards 명령으로 Data Stream의 Shard ID를 확인한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">$ aws kinesis list-shards --stream-name kevin-partition-key-ds-test</span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"Shards"</span>: [</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="string">"ShardId"</span>: <span class="string">"shardId-000000000000"</span>,</span><br><span class="line">            <span class="string">"HashKeyRange"</span>: &#123;</span><br><span class="line">                <span class="string">"EndingHashKey"</span>: <span class="string">"113427455640312821154458202477256070484"</span>,</span><br><span class="line">                <span class="string">"StartingHashKey"</span>: <span class="string">"0"</span></span><br><span class="line">            &#125;,</span><br><span class="line">            <span class="string">"SequenceNumberRange"</span>: &#123;</span><br><span class="line">                <span class="string">"StartingSequenceNumber"</span>: <span class="string">"49601380209882699883164686112423702323016597339734278146"</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="string">"ShardId"</span>: <span class="string">"shardId-000000000001"</span>,</span><br><span class="line">            <span class="string">"HashKeyRange"</span>: &#123;</span><br><span class="line">                <span class="string">"EndingHashKey"</span>: <span class="string">"226854911280625642308916404954512140969"</span>,</span><br><span class="line">                <span class="string">"StartingHashKey"</span>: <span class="string">"113427455640312821154458202477256070485"</span></span><br><span class="line">            &#125;,</span><br><span class="line">            <span class="string">"SequenceNumberRange"</span>: &#123;</span><br><span class="line">                <span class="string">"StartingSequenceNumber"</span>: <span class="string">"49601380209905000628363216735565238041289245701240258578"</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="string">"ShardId"</span>: <span class="string">"shardId-000000000002"</span>,</span><br><span class="line">            <span class="string">"HashKeyRange"</span>: &#123;</span><br><span class="line">                <span class="string">"EndingHashKey"</span>: <span class="string">"340282366920938463463374607431768211455"</span>,</span><br><span class="line">                <span class="string">"StartingHashKey"</span>: <span class="string">"226854911280625642308916404954512140970"</span></span><br><span class="line">            &#125;,</span><br><span class="line">            <span class="string">"SequenceNumberRange"</span>: &#123;</span><br><span class="line">                <span class="string">"StartingSequenceNumber"</span>: <span class="string">"49601380209927301373561747358706773759561894062746239010"</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Shard 입력 레코드수를 확인하기 위해서는 aws cloudwatch get-metric-statistics 명령을 사용한다.</p>
+<p>Shard 입력 레코드수 확인 예시</p>
+<ul>
+<li>shard_ID : shardId-000000000001</li>
+<li>시간 범위 : “2019-11-19T21:04:00+0900” ~ “2019-11-19T21:05:00+0900”</li>
+<li>간격 : 1분</li>
+<li>항목 : 합(Sum)</li>
+</ul>
+<p>위 예시와 같은 조건의 Shard 입력 레코드는 아래와 같은 명령을 확인한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ aws cloudwatch get-metric-statistics --namespace <span class="string">"AWS/Kinesis"</span> --metric-name <span class="string">"IncomingRecords"</span> --dimensions Name=StreamName,Value=kevin-partition-key-ds-test Name=ShardId,Value=shardId-000000000000 --start-time=<span class="string">"2019-11-19T21:04:00+0900"</span> --end-time=<span class="string">"2019-11-19T21:05:00+0900"</span> --period 1 --statistics Sum</span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"Datapoints"</span>: [</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="string">"Timestamp"</span>: <span class="string">"2019-11-19T12:04:00Z"</span>,</span><br><span class="line">            <span class="string">"Average"</span>: 17.0,</span><br><span class="line">            <span class="string">"Unit"</span>: <span class="string">"Count"</span></span><br><span class="line">        &#125;</span><br><span class="line">    ],</span><br><span class="line">    <span class="string">"Label"</span>: <span class="string">"IncomingRecords"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Destination에-저장된-데이터-확인-Optional"><a href="#Destination에-저장된-데이터-확인-Optional" class="headerlink" title="Destination에 저장된 데이터 확인(Optional)"></a>Destination에 저장된 데이터 확인(Optional)</h2><p>Destination(Elasticsaerch, S3)에 저장된 데이터를 확인이 필요한 경우 아래와 같이 확인한다.</p>
+<h3 id="Elasticsearch-결과-확인"><a href="#Elasticsearch-결과-확인" class="headerlink" title="Elasticsearch 결과 확인"></a>Elasticsearch 결과 확인</h3><p>elasticsearch 결과를 확인하기 위하여 다음과 같은 Kibana에 접속한다.</p>
+<ul>
+<li>Kibana : <a href="https://search-kevin-partition-key-es-test-vvftkr5fitlyycy3sx3y5skgcu.ap-northeast-2.es.amazonaws.com/_plugin/kibana/" target="_blank" rel="noopener">https://search-kevin-partition-key-es-test-vvftkr5fitlyycy3sx3y5skgcu.ap-northeast-2.es.amazonaws.com/_plugin/kibana/</a></li>
+</ul>
+<p>Dev Tools에서 다음과 같은 명령으로 저장된 다큐먼트의 개수를 확인한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">GET kevin_shard_dispersion_test/_count</span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">"count"</span> : 50,</span><br><span class="line">  <span class="string">"_shards"</span> : &#123;</span><br><span class="line">    <span class="string">"total"</span> : 5,</span><br><span class="line">    <span class="string">"successful"</span> : 5,</span><br><span class="line">    <span class="string">"skipped"</span> : 0,</span><br><span class="line">    <span class="string">"failed"</span> : 0</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="S3-결과-확인"><a href="#S3-결과-확인" class="headerlink" title="S3 결과 확인"></a>S3 결과 확인</h3><p>S3 결과를 확인하기 위하여 다음과 같은 aws cli 명령으로 다운로드한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ aws s3 cp s3://kevin-bucket-test/kevin_shard_dispersion_test/ ./s3_result/ --recursive</span><br><span class="line">download: s3://kevin-bucket-test/kevin_shard_dispersion_test/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-9a267748-f2f0-43e5-9499-65af204babc4 to s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-9a267748-f2f0-43e5-9499-65af204babc4</span><br><span class="line">download: s3://kevin-bucket-test/kevin_shard_dispersion_test/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-1a79c91c-ac09-4406-825a-26f2586d7ff6 to s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-1a79c91c-ac09-4406-825a-26f2586d7ff6</span><br><span class="line">download: s3://kevin-bucket-test/kevin_shard_dispersion_test/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-83415104-a2a6-4735-a82a-c4419b2f8ee9 to s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-83415104-a2a6-4735-a82a-c4419b2f8ee9</span><br></pre></td></tr></table></figure>
+
+<p>다운로드한 파일의 라인수는 다음과 같이 확인한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ wc -l `find ./s3_result -name <span class="string">'kevin-partition-*'</span> `</span><br><span class="line">      16 ./s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-9a267748-f2f0-43e5-9499-65af204babc4</span><br><span class="line">      17 ./s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-1a79c91c-ac09-4406-825a-26f2586d7ff6</span><br><span class="line">      17 ./s3_result/2019/11/19/12/kevin-partition-key-df-test-2-2019-11-19-12-04-22-83415104-a2a6-4735-a82a-c4419b2f8ee9</span><br><span class="line">      50 total</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h1 id="테스트-케이스-user-id-필드"><a href="#테스트-케이스-user-id-필드" class="headerlink" title="테스트 케이스 : user_id 필드"></a>테스트 케이스 : user_id 필드</h1><p>user_id 필드를 파티션키로 사용하면 다음과 같은 사항을 고려해야한다.</p>
+<ul>
+<li>user_id는 1 ~ 100만 사이의 값을 갖는다.</li>
+<li>Kinesis Stream 파티션키는 String 타입이어야 한다.</li>
+</ul>
+<p>이번 테스트에서 user_id 필드는 값을 생성한후 String 타입으로 변환한다.<br>다음은 user_id 필드 String 타입 변환이 반영된 Data generator 코드이다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/data_generator_user_id.py" target="_blank">data_generator_user_id.py</a><br>이번 테스트에서는 data_generate_user_id.py 코드를 사용하여 데이터를 생성한다.</li>
+</ul>
+<h2 id="Fluentd-설정-및-실행-1"><a href="#Fluentd-설정-및-실행-1" class="headerlink" title="Fluentd 설정 및 실행"></a>Fluentd 설정 및 실행</h2><p>Output Plugin에 partition 키를 user_id로 설정하는 옵션을 추가한다.<br>다음은 partition 키를 user_id로 설정하는 옵션을 추가한 설정 파일이다.</p>
+<figure class="highlight bash"><figcaption><span>: shard_dispersion_test.config</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">  @<span class="built_in">type</span> tail</span><br><span class="line">  path kevin_partitionkey_shard_dispersion_test/<span class="built_in">source</span>/*.<span class="built_in">log</span></span><br><span class="line">  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos</span><br><span class="line">  tag shard_dispersion.test</span><br><span class="line">  &lt;parse&gt;</span><br><span class="line">    @<span class="built_in">type</span> json</span><br><span class="line">  &lt;/parse&gt;</span><br><span class="line">  read_from_head <span class="literal">true</span></span><br><span class="line">  refresh_interval 1s</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">&lt;match shard_dispersion.*&gt;</span><br><span class="line">  @<span class="built_in">type</span> kinesis_streams</span><br><span class="line">  region ap-northeast-2</span><br><span class="line">  stream_name kevin-partition-key-ds-test</span><br><span class="line">  partition_key user_id</span><br><span class="line">  &lt;buffer tag&gt;</span><br><span class="line">    flush_mode interval</span><br><span class="line">    flush_interval 10s</span><br><span class="line">  &lt;/buffer&gt;</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>fluentd를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ fluentd -c shard_dispersion_test.config -o fleuntd.log</span><br></pre></td></tr></table></figure>
+
+<h2 id="Data-generator로-데이터-레코드-파일-생성-1"><a href="#Data-generator로-데이터-레코드-파일-생성-1" class="headerlink" title="Data generator로 데이터 레코드 파일 생성"></a>Data generator로 데이터 레코드 파일 생성</h2><p>10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ python3 data_generator_user_id.py 600 100 <span class="comment">### 600초동안, 파일당 데이터 레코드 100개</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="Shard-입력-레코드-개수-확인"><a href="#Shard-입력-레코드-개수-확인" class="headerlink" title="Shard 입력 레코드 개수 확인"></a>Shard 입력 레코드 개수 확인</h2><p>아래는 aws cloud watch 명령으로 샤드별 분단위 입력 레코드 합을 구한 것이다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/result_on_cloudwatch_user_id.txt" target="_blank">Shard 분단위 입력 레코드 개수</a></li>
+</ul>
+<p>다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.</p>
+<table>
+<thead>
+<tr>
+<th align="center">경과시간(분)</th>
+<th align="center">1번째 샤드</th>
+<th align="center">2번째 샤드</th>
+<th align="center">3번째 샤드</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">+1분</td>
+<td align="center">1100</td>
+<td align="center">1107</td>
+<td align="center">1093</td>
+</tr>
+<tr>
+<td align="center">+2분</td>
+<td align="center">2209</td>
+<td align="center">2179</td>
+<td align="center">2212</td>
+</tr>
+<tr>
+<td align="center">+3분</td>
+<td align="center">1813</td>
+<td align="center">1794</td>
+<td align="center">1893</td>
+</tr>
+<tr>
+<td align="center">+4분</td>
+<td align="center">2167</td>
+<td align="center">2167</td>
+<td align="center">2166</td>
+</tr>
+<tr>
+<td align="center">+5분</td>
+<td align="center">1993</td>
+<td align="center">1969</td>
+<td align="center">2038</td>
+</tr>
+<tr>
+<td align="center">+6분</td>
+<td align="center">1918</td>
+<td align="center">2066</td>
+<td align="center">2016</td>
+</tr>
+<tr>
+<td align="center">+7분</td>
+<td align="center">1961</td>
+<td align="center">1985</td>
+<td align="center">2054</td>
+</tr>
+<tr>
+<td align="center">+8분</td>
+<td align="center">1978</td>
+<td align="center">2055</td>
+<td align="center">1967</td>
+</tr>
+<tr>
+<td align="center">+9분</td>
+<td align="center">1783</td>
+<td align="center">1786</td>
+<td align="center">1831</td>
+</tr>
+<tr>
+<td align="center">+10분</td>
+<td align="center">2202</td>
+<td align="center">2198</td>
+<td align="center">2200</td>
+</tr>
+<tr>
+<td align="center">+11분</td>
+<td align="center">698</td>
+<td align="center">699</td>
+<td align="center">703</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>3개 샤드에 입력된 데이터의 개수가 균등하게 데이터 레코드 입력이 이루어진 것을 알 수 있다.</p>
+</blockquote>
+<hr>
+<h1 id="테스트-케이스-minimum-play-필드-단일-대문자-“Y”-or-“N”"><a href="#테스트-케이스-minimum-play-필드-단일-대문자-“Y”-or-“N”" class="headerlink" title="테스트 케이스 : minimum_play 필드 - 단일 대문자 (“Y” or “N”)"></a>테스트 케이스 : minimum_play 필드 - 단일 대문자 (“Y” or “N”)</h1><h2 id="Fluentd-설정-및-실행-2"><a href="#Fluentd-설정-및-실행-2" class="headerlink" title="Fluentd 설정 및 실행"></a>Fluentd 설정 및 실행</h2><p>Output Plugin에 partition 키를 minimum_play로 변경한다.<br>다음은 partition 키를 minimum_play로 변경한 설정 파일이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">  @<span class="built_in">type</span> tail</span><br><span class="line">  path kevin_partitionkey_shard_dispersion_test/<span class="built_in">source</span>/*.<span class="built_in">log</span></span><br><span class="line">  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos</span><br><span class="line">  tag shard_dispersion.test</span><br><span class="line">  &lt;parse&gt;</span><br><span class="line">    @<span class="built_in">type</span> json</span><br><span class="line">  &lt;/parse&gt;</span><br><span class="line">  read_from_head <span class="literal">true</span></span><br><span class="line">  refresh_interval 1s</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">&lt;match shard_dispersion.*&gt;</span><br><span class="line">  @<span class="built_in">type</span> kinesis_streams</span><br><span class="line">  region ap-northeast-2</span><br><span class="line">  stream_name kevin-partition-key-ds-test</span><br><span class="line">  partition_key user_id</span><br><span class="line">  &lt;buffer tag&gt;</span><br><span class="line">    flush_mode interval</span><br><span class="line">    flush_interval 10s</span><br><span class="line">  &lt;/buffer&gt;</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>fluentd를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ fluentd -c shard_dispersion_test.config -o fleuntd.log</span><br></pre></td></tr></table></figure>
+
+<h2 id="Data-generator로-데이터-레코드-파일-생성-2"><a href="#Data-generator로-데이터-레코드-파일-생성-2" class="headerlink" title="Data generator로 데이터 레코드 파일 생성"></a>Data generator로 데이터 레코드 파일 생성</h2><p>10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ python3 data_generator.py 600 100 <span class="comment">### 600초동안, 파일당 데이터 레코드 100개</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="Shard-입력-레코드-개수-확인-1"><a href="#Shard-입력-레코드-개수-확인-1" class="headerlink" title="Shard 입력 레코드 개수 확인"></a>Shard 입력 레코드 개수 확인</h2><p>아래는 aws cloud watch 명령으로 Shard별 분단위 입력 레코드 합을 구한 것이다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/result_on_cloudwatch_minimum_play_upper.txt" target="_blank">Shard 분단위 입력 레코드 개수</a></li>
+</ul>
+<p>다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.</p>
+<table>
+<thead>
+<tr>
+<th align="center">경과시간(분)</th>
+<th align="center">1번째 샤드</th>
+<th align="center">2번째 샤드</th>
+<th align="center">3번째 샤드</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">+1분</td>
+<td align="center">0</td>
+<td align="center">2000</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+2분</td>
+<td align="center">0</td>
+<td align="center">6000</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+3분</td>
+<td align="center">0</td>
+<td align="center">6000</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+4분</td>
+<td align="center">0</td>
+<td align="center">6000</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+5분</td>
+<td align="center">0</td>
+<td align="center">6000</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+6분</td>
+<td align="center">0</td>
+<td align="center">6000</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+7분</td>
+<td align="center">0</td>
+<td align="center">6000</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+8분</td>
+<td align="center">0</td>
+<td align="center">6000</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+9분</td>
+<td align="center">0</td>
+<td align="center">5900</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+10분</td>
+<td align="center">0</td>
+<td align="center">6000</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+11분</td>
+<td align="center">0</td>
+<td align="center">4100</td>
+<td align="center">0</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>2번째 샤드에만 데이터 레코드가 입력된 것을 알 수 있다.</p>
+</blockquote>
+<hr>
+<h1 id="테스트-케이스-minimum-play-필드-단일-소문자-“y”-or-“n”"><a href="#테스트-케이스-minimum-play-필드-단일-소문자-“y”-or-“n”" class="headerlink" title="테스트 케이스 : minimum_play 필드 - 단일 소문자 (“y” or “n”)"></a>테스트 케이스 : minimum_play 필드 - 단일 소문자 (“y” or “n”)</h1><p>다른 필드는 동일하되 minimum_play 필드만 단일 소문자 값을 갖는 경우를 테스트한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">*minimum_play* : playtime &gt; 7이면 minimum_play는 <span class="string">"y"</span>, palytime &lt;= 7이면 minimum_play는 <span class="string">"n"</span></span><br></pre></td></tr></table></figure>
+
+<p>Data generator에서 minimum_play 값 생성시 ‘y’ 또는 ‘n’ 값이 생성되도록 코드를 변경한다.</p>
+<p>다음은 minimum_play 값이 단일 소문자로 생성되는 Data generator 코드이다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/data_generator_minimum_play_single_lower_case.py.py" target="_blank">data_generator_minimum_play_single_lower_case.py.py</a></li>
+</ul>
+<h2 id="Fluentd-설정-및-실행-3"><a href="#Fluentd-설정-및-실행-3" class="headerlink" title="Fluentd 설정 및 실행"></a>Fluentd 설정 및 실행</h2><p>Output Plugin에 partition 키를 minimum_play로 변경한다.<br>다음은 partition 키를 minimum_play로 변경한 설정 파일이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">  @<span class="built_in">type</span> tail</span><br><span class="line">  path kevin_partitionkey_shard_dispersion_test/<span class="built_in">source</span>/*.<span class="built_in">log</span></span><br><span class="line">  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos</span><br><span class="line">  tag shard_dispersion.test</span><br><span class="line">  &lt;parse&gt;</span><br><span class="line">    @<span class="built_in">type</span> json</span><br><span class="line">  &lt;/parse&gt;</span><br><span class="line">  read_from_head <span class="literal">true</span></span><br><span class="line">  refresh_interval 1s</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">&lt;match shard_dispersion.*&gt;</span><br><span class="line">  @<span class="built_in">type</span> kinesis_streams</span><br><span class="line">  region ap-northeast-2</span><br><span class="line">  stream_name kevin-partition-key-ds-test</span><br><span class="line">  partition_key user_id</span><br><span class="line">  &lt;buffer tag&gt;</span><br><span class="line">    flush_mode interval</span><br><span class="line">    flush_interval 10s</span><br><span class="line">  &lt;/buffer&gt;</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>fluentd를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ fluentd -c shard_dispersion_test.config -o fleuntd.log</span><br></pre></td></tr></table></figure>
+
+<h2 id="Data-generator로-데이터-레코드-파일-생성-3"><a href="#Data-generator로-데이터-레코드-파일-생성-3" class="headerlink" title="Data generator로 데이터 레코드 파일 생성"></a>Data generator로 데이터 레코드 파일 생성</h2><p>10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ python3 data_generator_minimum_play_single_lower_case.py 600 100 <span class="comment">### 600초동안, 파일당 데이터 레코드 100개</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="Shard-입력-레코드-개수-확인-2"><a href="#Shard-입력-레코드-개수-확인-2" class="headerlink" title="Shard 입력 레코드 개수 확인"></a>Shard 입력 레코드 개수 확인</h2><p>아래는 aws cloud watch 명령으로 Shard별 분단위 입력 레코드 합을 구한 것이다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/result_on_cloudwatch_minimum_play_lower.txt" target="_blank">Shard 분단위 입력 레코드 개수</a></li>
+</ul>
+<p>다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.</p>
+<table>
+<thead>
+<tr>
+<th align="center">경과시간(분)</th>
+<th align="center">1번째 샤드</th>
+<th align="center">2번째 샤드</th>
+<th align="center">3번째 샤드</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">+1분</td>
+<td align="center">568</td>
+<td align="center">532</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+2분</td>
+<td align="center">3262</td>
+<td align="center">3338</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+3분</td>
+<td align="center">2764</td>
+<td align="center">2736</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+4분</td>
+<td align="center">3260</td>
+<td align="center">3340</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+5분</td>
+<td align="center">2726</td>
+<td align="center">2774</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+6분</td>
+<td align="center">3219</td>
+<td align="center">3381</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+7분</td>
+<td align="center">2672</td>
+<td align="center">2728</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+8분</td>
+<td align="center">3320</td>
+<td align="center">3280</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+9분</td>
+<td align="center">2695</td>
+<td align="center">2705</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+10분</td>
+<td align="center">2691</td>
+<td align="center">2809</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td align="center">+11분</td>
+<td align="center">2588</td>
+<td align="center">2612</td>
+<td align="center">0</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>1번째, 2번째 샤드에 균등하게 데이터 레코드가 입력된 것을 알 수 있다.</p>
+</blockquote>
+<hr>
+<h1 id="테스트-케이스-minimum-play-필드-다중-대문자-“TRUE”-or-“FALSE”"><a href="#테스트-케이스-minimum-play-필드-다중-대문자-“TRUE”-or-“FALSE”" class="headerlink" title="테스트 케이스 : minimum_play 필드 - 다중 대문자 (“TRUE” or “FALSE”)"></a>테스트 케이스 : minimum_play 필드 - 다중 대문자 (“TRUE” or “FALSE”)</h1><p>다른 필드는 동일하되 minimum_play 필드만 다중 대문자 값을 갖는 경우를 테스트한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">minimum_play : playtime &gt; 7이면 minimum_play는 <span class="string">"TRUE"</span>, palytime &lt;= 7이면 minimum_play는 <span class="string">"FALSE"</span></span><br></pre></td></tr></table></figure>
+
+<p>Data generator에서 minimum_play 값 생성시 ‘TRUE’ 또는 ‘FALSE’ 값이 생성되도록 코드를 변경한다.<br>다음은 minimum_play 값이 다중 대문자로 생성되는 Data generator 코드이다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/data_generator_minimum_play_multi_upper_case.py" target="_blank">data_generator_minimum_play_multi_upper_case.py</a></li>
+</ul>
+<h2 id="Fluentd-설정-및-실행-4"><a href="#Fluentd-설정-및-실행-4" class="headerlink" title="Fluentd 설정 및 실행"></a>Fluentd 설정 및 실행</h2><p>Output Plugin에 partition 키를 minimum_play로 변경한다.<br>다음은 partition 키를 minimum_play로 변경한 설정 파일이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">  @<span class="built_in">type</span> tail</span><br><span class="line">  path kevin_partitionkey_shard_dispersion_test/<span class="built_in">source</span>/*.<span class="built_in">log</span></span><br><span class="line">  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos</span><br><span class="line">  tag shard_dispersion.test</span><br><span class="line">  &lt;parse&gt;</span><br><span class="line">    @<span class="built_in">type</span> json</span><br><span class="line">  &lt;/parse&gt;</span><br><span class="line">  read_from_head <span class="literal">true</span></span><br><span class="line">  refresh_interval 1s</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">&lt;match shard_dispersion.*&gt;</span><br><span class="line">  @<span class="built_in">type</span> kinesis_streams</span><br><span class="line">  region ap-northeast-2</span><br><span class="line">  stream_name kevin-partition-key-ds-test</span><br><span class="line">  partition_key user_id</span><br><span class="line">  &lt;buffer tag&gt;</span><br><span class="line">    flush_mode interval</span><br><span class="line">    flush_interval 10s</span><br><span class="line">  &lt;/buffer&gt;</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>fluentd를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ fluentd -c shard_dispersion_test.config -o fleuntd.log</span><br></pre></td></tr></table></figure>
+
+<h2 id="Data-generator로-데이터-레코드-파일-생성-4"><a href="#Data-generator로-데이터-레코드-파일-생성-4" class="headerlink" title="Data generator로 데이터 레코드 파일 생성"></a>Data generator로 데이터 레코드 파일 생성</h2><p>10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ python3 data_generator_minimum_play_multi_upper_case.py 600 100 <span class="comment">### 600초동안, 파일당 데이터 레코드 100개</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="Shard-입력-레코드-개수-확인-3"><a href="#Shard-입력-레코드-개수-확인-3" class="headerlink" title="Shard 입력 레코드 개수 확인"></a>Shard 입력 레코드 개수 확인</h2><p>아래는 aws cloud watch 명령으로 Shard별 분단위 입력 레코드 합을 구한 것이다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/result_on_cloudwatch_minimum_play_multi_upper.txt" target="_blank">Shard 분단위 입력 레코드 개수</a></li>
+</ul>
+<p>다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.</p>
+<table>
+<thead>
+<tr>
+<th align="center">경과시간(분)</th>
+<th align="center">1번째 샤드</th>
+<th align="center">2번째 샤드</th>
+<th align="center">3번째 샤드</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">+1분</td>
+<td align="center">0</td>
+<td align="center">3285</td>
+<td align="center">3315</td>
+</tr>
+<tr>
+<td align="center">+2분</td>
+<td align="center">0</td>
+<td align="center">2721</td>
+<td align="center">2779</td>
+</tr>
+<tr>
+<td align="center">+3분</td>
+<td align="center">0</td>
+<td align="center">2718</td>
+<td align="center">2782</td>
+</tr>
+<tr>
+<td align="center">+4분</td>
+<td align="center">0</td>
+<td align="center">3062</td>
+<td align="center">3038</td>
+</tr>
+<tr>
+<td align="center">+5분</td>
+<td align="center">0</td>
+<td align="center">3038</td>
+<td align="center">2962</td>
+</tr>
+<tr>
+<td align="center">+6분</td>
+<td align="center">0</td>
+<td align="center">2980</td>
+<td align="center">3020</td>
+</tr>
+<tr>
+<td align="center">+7분</td>
+<td align="center">0</td>
+<td align="center">3293</td>
+<td align="center">3207</td>
+</tr>
+<tr>
+<td align="center">+8분</td>
+<td align="center">0</td>
+<td align="center">2743</td>
+<td align="center">2757</td>
+</tr>
+<tr>
+<td align="center">+9분</td>
+<td align="center">0</td>
+<td align="center">3139</td>
+<td align="center">3061</td>
+</tr>
+<tr>
+<td align="center">+10분</td>
+<td align="center">0</td>
+<td align="center">2983</td>
+<td align="center">3017</td>
+</tr>
+<tr>
+<td align="center">+11분</td>
+<td align="center">0</td>
+<td align="center">48</td>
+<td align="center">52</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>2번째, 3번째 샤드에 균등하게 데이터 레코드가 입력된 것을 알 수 있다.</p>
+</blockquote>
+<hr>
+<h1 id="테스트-케이스-minimum-play-필드-다중-소문자-“true”-or-“false”"><a href="#테스트-케이스-minimum-play-필드-다중-소문자-“true”-or-“false”" class="headerlink" title="테스트 케이스 : minimum_play 필드 - 다중 소문자 (“true” or “false”)"></a>테스트 케이스 : minimum_play 필드 - 다중 소문자 (“true” or “false”)</h1><p>다른 필드는 동일하되 minimum_play 필드만 다중 소문자 값을 갖는 경우를 테스트한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">minimum_play : playtime &gt; 7이면 minimum_play는 <span class="string">"true"</span>, palytime &lt;= 7이면 minimum_play는 <span class="string">"false"</span></span><br></pre></td></tr></table></figure>
+
+<p>Data generator에서 minimum_play 값 생성시 ‘true’ 또는 ‘false’ 값이 생성되도록 코드를 변경한다.</p>
+<p>다음은 minimum_play 값이 다중 소문자로 생성되는 Data generator 코드이다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/data_generator_minimum_play_multi_lower_case.py" target="_blank">data_generator_minimum_play_multi_lower_case.py</a></li>
+</ul>
+<h2 id="Fluentd-설정-및-실행-5"><a href="#Fluentd-설정-및-실행-5" class="headerlink" title="Fluentd 설정 및 실행"></a>Fluentd 설정 및 실행</h2><p>Output Plugin에 partition 키를 minimum_play로 변경한다.<br>다음은 partition 키를 minimum_play로 변경한 설정 파일이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">  @<span class="built_in">type</span> tail</span><br><span class="line">  path kevin_partitionkey_shard_dispersion_test/<span class="built_in">source</span>/*.<span class="built_in">log</span> <span class="comment">### 프로젝트 디렉터리</span></span><br><span class="line">  pos_file kevin_partitionkey_shard_dispersion_test/pos/pos_file.pos <span class="comment">### 프로젝트 디렉터리</span></span><br><span class="line">  tag shard_dispersion.test</span><br><span class="line">  &lt;parse&gt;</span><br><span class="line">    @<span class="built_in">type</span> json</span><br><span class="line">  &lt;/parse&gt;</span><br><span class="line">  read_from_head <span class="literal">true</span></span><br><span class="line">  refresh_interval 1s</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">&lt;match shard_dispersion.*&gt;</span><br><span class="line">  @<span class="built_in">type</span> kinesis_streams</span><br><span class="line">  region ap-northeast-2</span><br><span class="line">  stream_name kevin-partition-key-ds-test</span><br><span class="line">  partition_key user_id</span><br><span class="line">  &lt;buffer tag&gt;</span><br><span class="line">    flush_mode interval</span><br><span class="line">    flush_interval 10s</span><br><span class="line">  &lt;/buffer&gt;</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>fluentd를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ fluentd -c shard_dispersion_test.config -o fleuntd.log</span><br></pre></td></tr></table></figure>
+
+<h2 id="Data-generator로-데이터-레코드-파일-생성-5"><a href="#Data-generator로-데이터-레코드-파일-생성-5" class="headerlink" title="Data generator로 데이터 레코드 파일 생성"></a>Data generator로 데이터 레코드 파일 생성</h2><p>10분동안 입력 레코드 개수 합을 확인하기 위하여 다음과 같은 명령으로 Data generator를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ python3 data_generator_minimum_play_multi_lower_case.py 600 100 <span class="comment">### 600초동안, 파일당 데이터 레코드 100개</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="Shard-입력-레코드-개수-확인-4"><a href="#Shard-입력-레코드-개수-확인-4" class="headerlink" title="Shard 입력 레코드 개수 확인"></a>Shard 입력 레코드 개수 확인</h2><p>아래는 aws cloud watch 명령으로 Shard별 분단위 입력 레코드 합을 구한 것이다.</p>
+<ul>
+<li><a href="/post_attachment/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/result_on_cloudwatch_minimum_play_multi_upper.txt" target="_blank">Shard 분단위 입력 레코드 개수</a></li>
+</ul>
+<p>다음은 샤드별 분단위 입력 데이터 레코드 개수 합 및 범위를 정리한 표이다.</p>
+<table>
+<thead>
+<tr>
+<th align="center">경과시간(분)</th>
+<th align="center">1번째 샤드</th>
+<th align="center">2번째 샤드</th>
+<th align="center">3번째 샤드</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">+1분</td>
+<td align="center">0</td>
+<td align="center">1131</td>
+<td align="center">1069</td>
+</tr>
+<tr>
+<td align="center">+2분</td>
+<td align="center">0</td>
+<td align="center">2670</td>
+<td align="center">2830</td>
+</tr>
+<tr>
+<td align="center">+3분</td>
+<td align="center">0</td>
+<td align="center">2764</td>
+<td align="center">2736</td>
+</tr>
+<tr>
+<td align="center">+4분</td>
+<td align="center">0</td>
+<td align="center">3263</td>
+<td align="center">3337</td>
+</tr>
+<tr>
+<td align="center">+5분</td>
+<td align="center">0</td>
+<td align="center">2817</td>
+<td align="center">2683</td>
+</tr>
+<tr>
+<td align="center">+6분</td>
+<td align="center">0</td>
+<td align="center">3290</td>
+<td align="center">3310</td>
+</tr>
+<tr>
+<td align="center">+7분</td>
+<td align="center">0</td>
+<td align="center">2750</td>
+<td align="center">2750</td>
+</tr>
+<tr>
+<td align="center">+8분</td>
+<td align="center">0</td>
+<td align="center">3291</td>
+<td align="center">3309</td>
+</tr>
+<tr>
+<td align="center">+9분</td>
+<td align="center">0</td>
+<td align="center">2554</td>
+<td align="center">2646</td>
+</tr>
+<tr>
+<td align="center">+10분</td>
+<td align="center">0</td>
+<td align="center">3213</td>
+<td align="center">3187</td>
+</tr>
+<tr>
+<td align="center">+11분</td>
+<td align="center">0</td>
+<td align="center">2197</td>
+<td align="center">2203</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>2번째, 3번째 샤드에 균등하게 데이터 레코드가 입력된 것을 알 수 있다.</p>
+</blockquote>
+<hr>
+<h1 id="테스트-결과"><a href="#테스트-결과" class="headerlink" title="테스트 결과"></a>테스트 결과</h1><blockquote>
+<p>필드를 파티션키로 선정시 적어도 필드의 도메인 카운트가 샤드수보다 커야한다.</p>
+<ul>
+<li>테스트 케이스 : user_id 필드에서 필드의 도메인 카운트(100만)는 샤드수(3)보다 크며, 3개 샤드 모두에서 데이터 레코드가 입력되었다.</li>
+<li>테스트 케이스 : minimum_play  필드 - 단일 소문자의 도메인 카운트(2)는 샤드수(3)보다 작으며, 3개 샤드중 2개 샤드에 데이터 레코드가 입력되었다.</li>
+</ul>
+</blockquote>
+<blockquote>
+<p>필드의 도메인 카운트가 동일하여도 필드값에 따라 샤드 분산이 이루어지지 않을 수도 있다.</p>
+<ul>
+<li>테스트 케이스 : minimum_play  필드 - 단일 대문자는 3개 샤드중 1개 샤드만 데이터 레코드가 입력되었다.</li>
+<li>테스트 케이스 : minimum_play  필드 - 단일 소문자는 3개 샤드중 2개 샤드에 데이터 레코드가 입력되었다.</li>
+</ul>
+</blockquote>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                
+    <a class="tag tag--primary tag--small t-link" href="/tags/Elasticsearch/" rel="tag">Elasticsearch</a> <a class="tag tag--primary tag--small t-link" href="/tags/Kinesis-Data-Firehose/" rel="tag">Kinesis Data Firehose</a> <a class="tag tag--primary tag--small t-link" href="/tags/Kinesis-Data-Stream/" rel="tag">Kinesis Data Stream</a> <a class="tag tag--primary tag--small t-link" href="/tags/S3/" rel="tag">S3</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/12/23/Metabase-%EC%9A%B4%EC%98%81-%EA%B4%80%EB%A0%A8-%EA%B8%B0%EC%B4%88-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Metabase 운영 관련 기초 테스트"
+                    aria-label="PREVIOUS: Metabase 운영 관련 기초 테스트"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    data-tooltip="Amazon Elasticsearch 인덱스 복구"
+                    aria-label="NEXT: Amazon Elasticsearch 인덱스 복구"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript" target="_blank" rel="noopener">comments powered by Disqus.</a></noscript>
+</div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2021 Kevin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="5">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/12/23/Metabase-%EC%9A%B4%EC%98%81-%EA%B4%80%EB%A0%A8-%EA%B8%B0%EC%B4%88-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Metabase 운영 관련 기초 테스트"
+                    aria-label="PREVIOUS: Metabase 운영 관련 기초 테스트"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    data-tooltip="Amazon Elasticsearch 인덱스 복구"
+                    aria-label="NEXT: Amazon Elasticsearch 인덱스 복구"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="5">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                        aria-label="Share on Facebook"
+                    >
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                        aria-label="Share on Twitter"
+                    >
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                        aria-label="Share on Google+"
+                    >
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+            <h4 id="about-card-name">Kevin</h4>
+        
+            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>Developer, DE</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                서울 / 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/curtain.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+        <script>
+          var disqus_config = function() {
+            this.page.url = 'http://usehun0625.github.io/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/';
+              
+            this.page.identifier = '2019/11/27/Kinesis-Data-Stream-파티션키-선택과-Shard-분산-동작-케이스별-테스트/';
+              
+          };
+          (function() {
+            var d = document, s = d.createElement('script');
+            var disqus_shortname = 'usehun0625';
+            s.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+          })();
+        </script>
+    
+
+
+
+
+    </body>
+</html>

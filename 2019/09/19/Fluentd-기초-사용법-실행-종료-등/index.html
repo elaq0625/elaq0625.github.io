@@ -1,0 +1,675 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Kevin의 블로그">
+    <title>Fluentd 기초 사용법(실행, 종료 등) - Kevin의 블로그</title>
+    <meta name="author" content="Kevin">
+    
+    
+        <link rel="icon" href="http://usehun0625.github.io/assets/images/beer_favaicon.png">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n\nFluentd(td-agent) 실행과 관련 다음과 같은 상세 사용법을 정리한다.\n\ntd-agent의 실행과 종료\ntd-agent 로그파일\ntd-agent 설정파일 경로를 변경하는 방법\n\n\n\n환경다음과 같은 환경에서 Fluentd를 실행한다.\n\nOS : macOS Mojave 10.14.5\nFluentd : 1.0.2 (td-agent : 3.1.1.0)\n\n사용법실행, 종료td-agent의 실행은 다음과 같은 명령으로 한다.\n1$ sudo launchctl load /Library/LaunchDaemons/td-agent.plist\n\ntd-agent의 종료는 다음과 같은 명령으로 한다.\n1$ sudo launchctl unload /Library/LaunchDaemons/td-agent.plist\n\n편의를 위하여 다음과 같이 디렉터리에 접근하여 실행, 종료 하기도 한다.\n123$ cd /Library/LaunchDaemons$ sudo launchctl load td-agent.plist$ sudo launchctl unload td-agent.plist\n\n로그 파일td-agent의 로그는 다음과 같은 경로의 파일에 저장된다.\n1/var/log/td-agent/td-agent.log\n\n다음과 같이 td-agent 로그 파일을 테일링하여 td-agent의 동작을 확인하기도 한다.\n123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051$ tail -50f td-agent.log2019-09-18 14:47:33 +0900 [info]: #0 shutting down input plugin type=:tail plugin_id=\"object:3fe4d84363e8\"2019-09-18 14:47:33 +0900 [info]: #0 shutting down output plugin type=:file plugin_id=\"object:3fe4d859ffcc\"2019-09-18 14:47:33 +0900 [info]: Worker 0 finished with status 02019-09-18 15:18:32 +0900 [info]: parsing config file is succeeded path=\"/Users/kevin/dev/fluentd/test/file_path/config/td-agent.conf\"2019-09-18 15:18:32 +0900 [info]: using configuration file: &lt;ROOT&gt;  &lt;source&gt;    @type tail    tag \"file_path\"    path \"/Users/kevin/dev/fluentd/test/file_path/source/prefix*\"    pos_file \"/Users/kevin/dev/fluentd/test/file_path/pos/pos_file.pos\"    refresh_interval 5s    read_from_head true    &lt;parse&gt;      @type \"none\"    &lt;/parse&gt;  &lt;/source&gt;  &lt;match file_path*&gt;    @type file    path \"/Users/kevin/dev/fluentd/test/file_path/match/$&#123;tag&#125;_output\"    add_path_suffix true    path_suffix \".log\"    append true    &lt;buffer tag&gt;      flush_mode interval      flush_interval 5s      path \"/Users/kevin/dev/fluentd/test/file_path/match/$&#123;tag&#125;_output\"    &lt;/buffer&gt;    &lt;format&gt;      @type \"out_file\"      output_tag false      output_time true    &lt;/format&gt;  &lt;/match&gt;&lt;/ROOT&gt;2019-09-18 15:18:32 +0900 [info]: starting fluentd-1.0.2 pid=2152 ruby=\"2.4.2\"2019-09-18 15:18:32 +0900 [info]: spawn command to main:  cmdline=[\"/opt/td-agent/embedded/bin/ruby\", \"-Eascii-8bit:ascii-8bit\", \"/opt/td-agent/usr/sbin/td-agent\", \"--log\", \"/var/log/td-agent/td-agent.log\", \"--use-v1-config\", \"--under-supervisor\"]2019-09-18 15:18:32 +0900 [info]: gem 'fluent-plugin-elasticsearch' version '2.4.0'2019-09-18 15:18:32 +0900 [info]: gem 'fluent-plugin-kafka' version '0.6.5'2019-09-18 15:18:32 +0900 [info]: gem 'fluent-plugin-rewrite-tag-filter' version '2.0.1'2019-09-18 15:18:32 +0900 [info]: gem 'fluent-plugin-s3' version '1.1.0'2019-09-18 15:18:32 +0900 [info]: gem 'fluent-plugin-td' version '1.0.0'2019-09-18 15:18:32 +0900 [info]: gem 'fluent-plugin-td-monitoring' version '0.2.3'2019-09-18 15:18:32 +0900 [info]: gem 'fluent-plugin-webhdfs' version '1.2.2'2019-09-18 15:18:32 +0900 [info]: gem 'fluentd' version '1.0.2'2019-09-18 15:18:32 +0900 [info]: adding match pattern=\"file_path*\" type=\"file\"2019-09-18 15:18:32 +0900 [info]: adding source type=\"tail\"2019-09-18 15:18:32 +0900 [info]: #0 starting fluentd worker pid=2159 ppid=2152 worker=02019-09-18 15:18:32 +0900 [info]: #0 following tail of /Users/kevin/dev/fluentd/test/file_path/source/prefix_test.txt2019-09-18 15:18:32 +0900 [info]: #0 following tail of /Users/kevin/dev/fluentd/test/file_path/source/prefix_test.log2019-09-18 15:18:32 +0900 [info]: #0 fluentd worker is now running worker=0\n\n설정파일 경로를 변경하는 방법td-agent 설정파일의 기본 경로는 다음과 같다.\n1/etc/td-agent/td-agent.conf\n\n\n설정파일의 경로를 변경하기 위해서는 다음 경로의 파일에 접근해야 한다.\n1/opt/td-agent/usr/sbin/td-agent\n\n12345678$ cat /opt/td-agent/usr/sbin/td-agent#!/opt/td-agent/embedded/bin/rubyENV[\"GEM_HOME\"]=\"/opt/td-agent/embedded/lib/ruby/gems/2.4.0/\"ENV[\"GEM_PATH\"]=\"/opt/td-agent/embedded/lib/ruby/gems/2.4.0/\"ENV[\"FLUENT_CONF\"]=\"/etc/td-agent/td-agent.conf\"ENV[\"FLUENT_PLUGIN\"]=\"/etc/td-agent/plugin\"ENV[\"FLUENT_SOCKET\"]=\"/var/run/td-agent/td-agent.sock\"load \"/opt/td-agent/embedded/bin/fluentd\"\n\n위의 파일 내용중 ENV[“FLUENT_CONF”]=”/etc/td-agent/td-agent.conf”을 원하는 설정파일의 경로를 변경해주면 된다.\n다음은 변경한 예시이다.\n12345678$ vim /opt/td-agent/usr/sbin/td-agent#!/opt/td-agent/embedded/bin/rubyENV[\"GEM_HOME\"]=\"/opt/td-agent/embedded/lib/ruby/gems/2.4.0/\"ENV[\"GEM_PATH\"]=\"/opt/td-agent/embedded/lib/ruby/gems/2.4.0/\"ENV[\"FLUENT_CONF\"]=\"/Users/kevin/dev/fluentd/test/file_path/config/td-agent.conf\"ENV[\"FLUENT_PLUGIN\"]=\"/etc/td-agent/plugin\"ENV[\"FLUENT_SOCKET\"]=\"/var/run/td-agent/td-agent.sock\"load \"/opt/td-agent/embedded/bin/fluentd\"\n\n참고자료\nhttps://docs.fluentd.org/installation/install-by-dmg\nhttps://docs.fluentd.org/installation/post-installation-guide\n\n","dateCreated":"2019-09-19T08:07:19+09:00","dateModified":"2020-02-26T08:16:15+09:00","datePublished":"2019-09-19T08:07:19+09:00","description":"\n\nFluentd(td-agent) 실행과 관련 다음과 같은 상세 사용법을 정리한다.\n\ntd-agent의 실행과 종료\ntd-agent 로그파일\ntd-agent 설정파일 경로를 변경하는 방법\n","headline":"Fluentd 기초 사용법(실행, 종료 등)","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/","keywords":"Fluentd"}</script>
+    <meta name="description" content="Fluentd(td-agent) 실행과 관련 다음과 같은 상세 사용법을 정리한다.  td-agent의 실행과 종료 td-agent 로그파일 td-agent 설정파일 경로를 변경하는 방법">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="Fluentd 기초 사용법(실행, 종료 등)">
+<meta property="og:url" content="http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/index.html">
+<meta property="og:site_name" content="Kevin의 블로그">
+<meta property="og:description" content="Fluentd(td-agent) 실행과 관련 다음과 같은 상세 사용법을 정리한다.  td-agent의 실행과 종료 td-agent 로그파일 td-agent 설정파일 경로를 변경하는 방법">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-09-18T23:07:19.000Z">
+<meta property="article:modified_time" content="2020-02-25T23:16:15.957Z">
+<meta property="article:author" content="Kevin">
+<meta property="article:tag" content="Fluentd">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://usehun0625.github.io/assets/images/beer.jpg"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="5">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a
+            class="header-title-link"
+            href="/"
+            aria-label=""
+        >
+            Kevin의 블로그
+        </a>
+    </div>
+    
+        
+            <a
+                class="header-right-picture "
+                href="#about"
+                aria-label="Open the link: /#about"
+            >
+        
+        
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="5">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a
+                    href="/#about"
+                    aria-label="Read more about the author"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                </a>
+                <h4 class="sidebar-profile-name">Kevin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/"
+                            title="홈"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">홈</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="카테고리"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="태그"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link open-algolia-search"
+                             href="/all-archives"
+                            
+                            title="아카이브"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/usehun0625/" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:usehun0625@gmail.com" target="_blank" rel="noopener" title="Mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="5"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            Fluentd 기초 사용법(실행, 종료 등)
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2019-09-19T08:07:19+09:00">
+	
+		    Sep 19, 2019
+    	
+    </time>
+    
+        <span>in </span>
+        
+    <a class="category-link" href="/categories/%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%88%98%EC%A7%91/">데이터 수집</a>
+
+
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#환경"><span class="toc-text">환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#사용법"><span class="toc-text">사용법</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#실행-종료"><span class="toc-text">실행, 종료</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#로그-파일"><span class="toc-text">로그 파일</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#참고자료"><span class="toc-text">참고자료</span></a></li></ol>
+
+<p>Fluentd(td-agent) 실행과 관련 다음과 같은 상세 사용법을 정리한다.</p>
+<ul>
+<li>td-agent의 실행과 종료</li>
+<li>td-agent 로그파일</li>
+<li>td-agent 설정파일 경로를 변경하는 방법</li>
+</ul>
+<a id="more"></a>
+
+<h1 id="환경"><a href="#환경" class="headerlink" title="환경"></a>환경</h1><p>다음과 같은 환경에서 Fluentd를 실행한다.</p>
+<ul>
+<li>OS : macOS Mojave 10.14.5</li>
+<li>Fluentd : 1.0.2 (td-agent : 3.1.1.0)</li>
+</ul>
+<h1 id="사용법"><a href="#사용법" class="headerlink" title="사용법"></a>사용법</h1><h2 id="실행-종료"><a href="#실행-종료" class="headerlink" title="실행, 종료"></a>실행, 종료</h2><p>td-agent의 실행은 다음과 같은 명령으로 한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo launchctl load /Library/LaunchDaemons/td-agent.plist</span><br></pre></td></tr></table></figure>
+
+<p>td-agent의 종료는 다음과 같은 명령으로 한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo launchctl unload /Library/LaunchDaemons/td-agent.plist</span><br></pre></td></tr></table></figure>
+
+<p>편의를 위하여 다음과 같이 디렉터리에 접근하여 실행, 종료 하기도 한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cd</span> /Library/LaunchDaemons</span><br><span class="line">$ sudo launchctl load td-agent.plist</span><br><span class="line">$ sudo launchctl unload td-agent.plist</span><br></pre></td></tr></table></figure>
+
+<h2 id="로그-파일"><a href="#로그-파일" class="headerlink" title="로그 파일"></a>로그 파일</h2><p>td-agent의 로그는 다음과 같은 경로의 파일에 저장된다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/var/<span class="built_in">log</span>/td-agent/td-agent.log</span><br></pre></td></tr></table></figure>
+
+<p>다음과 같이 td-agent 로그 파일을 테일링하여 td-agent의 동작을 확인하기도 한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">$ tail -50f td-agent.log</span><br><span class="line">2019-09-18 14:47:33 +0900 [info]: <span class="comment">#0 shutting down input plugin type=:tail plugin_id="object:3fe4d84363e8"</span></span><br><span class="line">2019-09-18 14:47:33 +0900 [info]: <span class="comment">#0 shutting down output plugin type=:file plugin_id="object:3fe4d859ffcc"</span></span><br><span class="line">2019-09-18 14:47:33 +0900 [info]: Worker 0 finished with status 0</span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: parsing config file is succeeded path=<span class="string">"/Users/kevin/dev/fluentd/test/file_path/config/td-agent.conf"</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: using configuration file: &lt;ROOT&gt;</span><br><span class="line">  &lt;<span class="built_in">source</span>&gt;</span><br><span class="line">    @<span class="built_in">type</span> tail</span><br><span class="line">    tag <span class="string">"file_path"</span></span><br><span class="line">    path <span class="string">"/Users/kevin/dev/fluentd/test/file_path/source/prefix*"</span></span><br><span class="line">    pos_file <span class="string">"/Users/kevin/dev/fluentd/test/file_path/pos/pos_file.pos"</span></span><br><span class="line">    refresh_interval 5s</span><br><span class="line">    read_from_head <span class="literal">true</span></span><br><span class="line">    &lt;parse&gt;</span><br><span class="line">      @<span class="built_in">type</span> <span class="string">"none"</span></span><br><span class="line">    &lt;/parse&gt;</span><br><span class="line">  &lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">  &lt;match file_path*&gt;</span><br><span class="line">    @<span class="built_in">type</span> file</span><br><span class="line">    path <span class="string">"/Users/kevin/dev/fluentd/test/file_path/match/<span class="variable">$&#123;tag&#125;</span>_output"</span></span><br><span class="line">    add_path_suffix <span class="literal">true</span></span><br><span class="line">    path_suffix <span class="string">".log"</span></span><br><span class="line">    append <span class="literal">true</span></span><br><span class="line">    &lt;buffer tag&gt;</span><br><span class="line">      flush_mode interval</span><br><span class="line">      flush_interval 5s</span><br><span class="line">      path <span class="string">"/Users/kevin/dev/fluentd/test/file_path/match/<span class="variable">$&#123;tag&#125;</span>_output"</span></span><br><span class="line">    &lt;/buffer&gt;</span><br><span class="line">    &lt;format&gt;</span><br><span class="line">      @<span class="built_in">type</span> <span class="string">"out_file"</span></span><br><span class="line">      output_tag <span class="literal">false</span></span><br><span class="line">      output_time <span class="literal">true</span></span><br><span class="line">    &lt;/format&gt;</span><br><span class="line">  &lt;/match&gt;</span><br><span class="line">&lt;/ROOT&gt;</span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: starting fluentd-1.0.2 pid=2152 ruby=<span class="string">"2.4.2"</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: spawn <span class="built_in">command</span> to main:  cmdline=[<span class="string">"/opt/td-agent/embedded/bin/ruby"</span>, <span class="string">"-Eascii-8bit:ascii-8bit"</span>, <span class="string">"/opt/td-agent/usr/sbin/td-agent"</span>, <span class="string">"--log"</span>, <span class="string">"/var/log/td-agent/td-agent.log"</span>, <span class="string">"--use-v1-config"</span>, <span class="string">"--under-supervisor"</span>]</span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: gem <span class="string">'fluent-plugin-elasticsearch'</span> version <span class="string">'2.4.0'</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: gem <span class="string">'fluent-plugin-kafka'</span> version <span class="string">'0.6.5'</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: gem <span class="string">'fluent-plugin-rewrite-tag-filter'</span> version <span class="string">'2.0.1'</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: gem <span class="string">'fluent-plugin-s3'</span> version <span class="string">'1.1.0'</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: gem <span class="string">'fluent-plugin-td'</span> version <span class="string">'1.0.0'</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: gem <span class="string">'fluent-plugin-td-monitoring'</span> version <span class="string">'0.2.3'</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: gem <span class="string">'fluent-plugin-webhdfs'</span> version <span class="string">'1.2.2'</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: gem <span class="string">'fluentd'</span> version <span class="string">'1.0.2'</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: adding match pattern=<span class="string">"file_path*"</span> <span class="built_in">type</span>=<span class="string">"file"</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: adding <span class="built_in">source</span> <span class="built_in">type</span>=<span class="string">"tail"</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: <span class="comment">#0 starting fluentd worker pid=2159 ppid=2152 worker=0</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: <span class="comment">#0 following tail of /Users/kevin/dev/fluentd/test/file_path/source/prefix_test.txt</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: <span class="comment">#0 following tail of /Users/kevin/dev/fluentd/test/file_path/source/prefix_test.log</span></span><br><span class="line">2019-09-18 15:18:32 +0900 [info]: <span class="comment">#0 fluentd worker is now running worker=0</span></span><br></pre></td></tr></table></figure>
+
+<p>설정파일 경로를 변경하는 방법<br>td-agent 설정파일의 기본 경로는 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/etc/td-agent/td-agent.conf</span><br></pre></td></tr></table></figure>
+
+
+<p>설정파일의 경로를 변경하기 위해서는 다음 경로의 파일에 접근해야 한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/opt/td-agent/usr/sbin/td-agent</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ cat /opt/td-agent/usr/sbin/td-agent</span><br><span class="line"><span class="comment">#!/opt/td-agent/embedded/bin/ruby</span></span><br><span class="line">ENV[<span class="string">"GEM_HOME"</span>]=<span class="string">"/opt/td-agent/embedded/lib/ruby/gems/2.4.0/"</span></span><br><span class="line">ENV[<span class="string">"GEM_PATH"</span>]=<span class="string">"/opt/td-agent/embedded/lib/ruby/gems/2.4.0/"</span></span><br><span class="line">ENV[<span class="string">"FLUENT_CONF"</span>]=<span class="string">"/etc/td-agent/td-agent.conf"</span></span><br><span class="line">ENV[<span class="string">"FLUENT_PLUGIN"</span>]=<span class="string">"/etc/td-agent/plugin"</span></span><br><span class="line">ENV[<span class="string">"FLUENT_SOCKET"</span>]=<span class="string">"/var/run/td-agent/td-agent.sock"</span></span><br><span class="line">load <span class="string">"/opt/td-agent/embedded/bin/fluentd"</span></span><br></pre></td></tr></table></figure>
+
+<p>위의 파일 내용중 ENV[“FLUENT_CONF”]=”/etc/td-agent/td-agent.conf”을 원하는 설정파일의 경로를 변경해주면 된다.</p>
+<p>다음은 변경한 예시이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ vim /opt/td-agent/usr/sbin/td-agent</span><br><span class="line"><span class="comment">#!/opt/td-agent/embedded/bin/ruby</span></span><br><span class="line">ENV[<span class="string">"GEM_HOME"</span>]=<span class="string">"/opt/td-agent/embedded/lib/ruby/gems/2.4.0/"</span></span><br><span class="line">ENV[<span class="string">"GEM_PATH"</span>]=<span class="string">"/opt/td-agent/embedded/lib/ruby/gems/2.4.0/"</span></span><br><span class="line">ENV[<span class="string">"FLUENT_CONF"</span>]=<span class="string">"/Users/kevin/dev/fluentd/test/file_path/config/td-agent.conf"</span></span><br><span class="line">ENV[<span class="string">"FLUENT_PLUGIN"</span>]=<span class="string">"/etc/td-agent/plugin"</span></span><br><span class="line">ENV[<span class="string">"FLUENT_SOCKET"</span>]=<span class="string">"/var/run/td-agent/td-agent.sock"</span></span><br><span class="line">load <span class="string">"/opt/td-agent/embedded/bin/fluentd"</span></span><br></pre></td></tr></table></figure>
+
+<h1 id="참고자료"><a href="#참고자료" class="headerlink" title="참고자료"></a>참고자료</h1><ul>
+<li><a href="https://docs.fluentd.org/installation/install-by-dmg" target="_blank" rel="noopener">https://docs.fluentd.org/installation/install-by-dmg</a></li>
+<li><a href="https://docs.fluentd.org/installation/post-installation-guide" target="_blank" rel="noopener">https://docs.fluentd.org/installation/post-installation-guide</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                
+    <a class="tag tag--primary tag--small t-link" href="/tags/Fluentd/" rel="tag">Fluentd</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/10/16/Kinesis-Data-Stream-%EC%83%A4%EB%93%9C%EB%8B%B9-%EC%A0%9C%EC%95%BD-%EC%A1%B0%EA%B1%B4-%ED%99%95%EC%9D%B8/"
+                    data-tooltip="Kinesis Data Stream - 샤드당 제약 조건 확인"
+                    aria-label="PREVIOUS: Kinesis Data Stream - 샤드당 제약 조건 확인"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/09/18/Fluentd-%EC%9E%85%EB%A0%A5-%EB%A1%9C%EA%B7%B8-%ED%8C%8C%EC%9D%BC-%EA%B2%BD%EB%A1%9C-%EC%84%A4%EC%A0%95%EC%97%90-%EA%B4%80%ED%95%9C-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Fluentd - 입력 로그 파일 경로 설정에 관한 테스트"
+                    aria-label="NEXT: Fluentd - 입력 로그 파일 경로 설정에 관한 테스트"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript" target="_blank" rel="noopener">comments powered by Disqus.</a></noscript>
+</div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2021 Kevin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="5">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/10/16/Kinesis-Data-Stream-%EC%83%A4%EB%93%9C%EB%8B%B9-%EC%A0%9C%EC%95%BD-%EC%A1%B0%EA%B1%B4-%ED%99%95%EC%9D%B8/"
+                    data-tooltip="Kinesis Data Stream - 샤드당 제약 조건 확인"
+                    aria-label="PREVIOUS: Kinesis Data Stream - 샤드당 제약 조건 확인"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/09/18/Fluentd-%EC%9E%85%EB%A0%A5-%EB%A1%9C%EA%B7%B8-%ED%8C%8C%EC%9D%BC-%EA%B2%BD%EB%A1%9C-%EC%84%A4%EC%A0%95%EC%97%90-%EA%B4%80%ED%95%9C-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Fluentd - 입력 로그 파일 경로 설정에 관한 테스트"
+                    aria-label="NEXT: Fluentd - 입력 로그 파일 경로 설정에 관한 테스트"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="5">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"
+                        aria-label="Share on Facebook"
+                    >
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"
+                        aria-label="Share on Twitter"
+                    >
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/"
+                        aria-label="Share on Google+"
+                    >
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+            <h4 id="about-card-name">Kevin</h4>
+        
+            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>Developer, DE</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                서울 / 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/curtain.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+        <script>
+          var disqus_config = function() {
+            this.page.url = 'http://usehun0625.github.io/2019/09/19/Fluentd-%EA%B8%B0%EC%B4%88-%EC%82%AC%EC%9A%A9%EB%B2%95-%EC%8B%A4%ED%96%89-%EC%A2%85%EB%A3%8C-%EB%93%B1/';
+              
+            this.page.identifier = '2019/09/19/Fluentd-기초-사용법-실행-종료-등/';
+              
+          };
+          (function() {
+            var d = document, s = d.createElement('script');
+            var disqus_shortname = 'usehun0625';
+            s.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+          })();
+        </script>
+    
+
+
+
+
+    </body>
+</html>

@@ -1,0 +1,147 @@
+### NO. 1 Shard Input records per minute
+
+$ aws cloudwatch get-metric-statistics --namespace "AWS/Kinesis" --metric-name "IncomingRecords" --dimensions Name=StreamName,Value=kevin-partition-key-ds-test Name=ShardId,Value=shardId-000000000000 --start-time="2019-11-20T14:41:00+0900" --end-time="2019-11-20T14:55:00+0900" --period 1 --statistics Sum
+{
+    "Datapoints": [],
+    "Label": "IncomingRecords"
+}
+
+
+
+
+
+
+
+### NO. 2 Shard Input records per minute
+
+$ aws cloudwatch get-metric-statistics --namespace "AWS/Kinesis" --metric-name "IncomingRecords" --dimensions Name=StreamName,Value=kevin-partition-key-ds-test Name=ShardId,Value=shardId-000000000001 --start-time="2019-11-20T14:41:00+0900" --end-time="2019-11-20T14:55:00+0900" --period 1 --statistics Sum
+{
+    "Datapoints": [
+        {
+            "Timestamp": "2019-11-20T05:49:00Z",
+            "Sum": 2554.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:41:00Z",
+            "Sum": 1131.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:45:00Z",
+            "Sum": 2817.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:48:00Z",
+            "Sum": 3291.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:44:00Z",
+            "Sum": 3263.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:47:00Z",
+            "Sum": 2750.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:43:00Z",
+            "Sum": 2764.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:46:00Z",
+            "Sum": 3290.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:50:00Z",
+            "Sum": 3213.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:51:00Z",
+            "Sum": 2197.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:42:00Z",
+            "Sum": 2670.0,
+            "Unit": "Count"
+        }
+    ],
+    "Label": "IncomingRecords"
+}
+
+
+
+
+
+
+
+### NO. 3 Shard Input records per minute
+
+$ aws cloudwatch get-metric-statistics --namespace "AWS/Kinesis" --metric-name "IncomingRecords" --dimensions Name=StreamName,Value=kevin-partition-key-ds-test Name=ShardId,Value=shardId-000000000002 --start-time="2019-11-20T14:41:00+0900" --end-time="2019-11-20T14:55:00+0900" --period 1 --statistics Sum
+{
+    "Datapoints": [
+        {
+            "Timestamp": "2019-11-20T05:49:00Z",
+            "Sum": 2646.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:41:00Z",
+            "Sum": 1069.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:45:00Z",
+            "Sum": 2683.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:48:00Z",
+            "Sum": 3309.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:44:00Z",
+            "Sum": 3337.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:47:00Z",
+            "Sum": 2750.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:43:00Z",
+            "Sum": 2736.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:46:00Z",
+            "Sum": 3310.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:50:00Z",
+            "Sum": 3187.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:51:00Z",
+            "Sum": 2203.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-20T05:42:00Z",
+            "Sum": 2830.0,
+            "Unit": "Count"
+        }
+    ],
+    "Label": "IncomingRecords"
+}

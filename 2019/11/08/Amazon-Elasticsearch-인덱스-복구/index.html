@@ -1,0 +1,674 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Kevin의 블로그">
+    <title>Amazon Elasticsearch 인덱스 복구 - Kevin의 블로그</title>
+    <meta name="author" content="Kevin">
+    
+    
+        <link rel="icon" href="http://usehun0625.github.io/assets/images/beer_favaicon.png">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.\n\nAmazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.\n\n\n\n환경Amazon Elasticsearch\n버전 : 6.7\n인스턴스 유형 : t2.small.elasticsearch\n인스턴스 개수 : 2\n볼륨 크기 : 10 GB\n복구할 인덱스 : recovery_test_index\n\n복구 과정복구전 인덱스에 저장된 다큐먼트 개수 확인복구전 recovery_test_index에 저장된 다큐먼트가 9개 저장된 것을 확인했다.\n12345678910$ curl -XGET '[Elasticsearch_도메인명]/recovery_test_index/_count?pretty'&#123;  \"count\" : 9,  \"_shards\" : &#123;    \"total\" : 5,    \"successful\" : 5,    \"skipped\" : 0,    \"failed\" : 0  &#125;&#125;\n\n스냅샷 존재 여부 확인Amazon Elasticsearch의 스냅샷 정책은 다음과 같고, 현재 시점( 2019. 11. 5 )에서 복구 희망 시점(2019. 10. 29 )의 스냅샷으로 복구 가능하다는 것을 알 수 있다.\n\nAmazon Elastcisearch 스냅샷 정책모든 Amazon ES 도메인은 자동 스냅샷을 생성하지만 빈도는 다릅니다.\n\nElasticsearch 5.3 이상을 실행하는 도메인의 경우 Amazon ES는 시간별 자동 스냅샷을 생성하고 최대 336개의 스냅샷을 14일 동안 보관합니다.\nElasticsearch 5.1 이하를 실행하는 도메인의 경우 Amazon ES는 일별 자동 스냅샷을 생성하고(지정한 시간 동안) 최대 14개의 스냅샷을 30일 동안 보관합니다.\n\n\n\n\nAmazon Elasticsearch는 ‘리포지토리’ 단위로 스냅샷을 저장한다.자동 스냅샷 ‘리포지토리’를 확인하기 위하여 다음과 같은 명령으로 ‘리포지토리’를 확인한다.\n12$ curl -XGET '[Elasticsearch_도메인명]/_snapshot'&#123;\"cs-automated\":&#123;\"type\":\"s3\"&#125;&#125;\n\n“cs-automated” 리포지토리에 복구 희망 시점(2019. 10. 29 )의 스냅샷이 남아 있는지 확인한 결과 “2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51” 스냅샵이 남아 있었다.\n1234567891011121314151617181920212223242526272829303132333435363738394041$ curl -XGET '[Elasticsearch_도메인명]/_snapshot/cs-automated/_all?pretty'&#123;  \"snapshots\" : [ &#123;    \"snapshot\" : \"2019-10-22t01-47-54.328ccc95-18b0-455e-bf24-abeeeaf18eeb\",    \"uuid\" : \"LsMY9UfnTn-gR1V751JEQQ\",    \"version_id\" : 6070099,    \"version\" : \"6.7.0\",    \"indices\" : [ \".opendistro-alerting-alert-history-2019.06.20-000052\",... 중략 ...  &#125;, &#123;    \"snapshot\" : \"2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51\",    \"uuid\" : \"HyKrNLXCRdW3DPTMkcPdFg\",    \"version_id\" : 6070099,    \"version\" : \"6.7.0\",    \"indices\" : [ ... 중략 ... \"recovery_test_index\",  ... 중략 ... ],    \"include_global_state\" : true,    \"state\" : \"SUCCESS\",    \"start_time\" : \"2019-10-29T02:47:55.177Z\",    \"start_time_in_millis\" : 1572317275177,    \"end_time\" : \"2019-10-29T02:51:19.273Z\",    \"end_time_in_millis\" : 1572317479273,    \"duration_in_millis\" : 204096,    \"failures\" : [ ],    \"shards\" : &#123;      \"total\" : 968,      \"failed\" : 0,      \"successful\" : 968    &#125;  &#125;, &#123;... 중략 ...\n\n스냅샷으로 인덱스 복구복구 하려는 인덱스가 현재 시점에 존재하는 경우에는 충돌이 발생할 수 있다. 따라서 삭제하거나 명칭을 변경해야한다.현재 존재하는 “recovery_test_index” 인덱스를 삭제한다.\n12$ curl -XDELETE '[Elasticsearch_도메인명]/recovery_test_index'&#123;\"acknowledged\" : true&#125;%\n\n인덱스를 복구하기 위하여 복구 희망 시점의 스냅샵 ID를 알아야 한다.위의 “복구 가능 확인 여부”에서 확인한 스냅샵 ID는 “2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51” 이다.\n다음과 같은 명령으로 복구 희망 시점(2019. 10. 29) “recovery_test_index” 인덱스를 복구한다.\n12345### https://엔드포인트/_snapshot/리포지토리/스냅샷 ID/_restore### json : &#123;\"indics\": 인덱스명 &#125; $ curl -XPOST '[Elasticsearch_도메인명]/_snapshot/cs-automated/2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51/_restore' -d '&#123;\"indices\": \"recovery_test_index\"&#125;' -H 'Content-Type: application/json'&#123;\"accepted\":true&#125;%\n\n복구후 인덱스 저장된 다큐먼트 개수 확인복구된 recovery_test_index 인덱스에 248265개의 다큐먼트가 저장된 것을 확인했다.\n12345678910$ curl -XGET '[Elasticsearch_도메인명]/recovery_test_index/_count?pretty'&#123;  \"count\" : 248265,  \"_shards\" : &#123;    \"total\" : 5,    \"successful\" : 5,    \"skipped\" : 0,    \"failed\" : 0  &#125;&#125;\n\n참고자료\nAmazon Elasticsearch Service 인덱스 스냅샷 작업\n\n","dateCreated":"2019-11-08T21:20:14+09:00","dateModified":"2020-02-15T10:56:19+09:00","datePublished":"2019-11-08T21:20:14+09:00","description":"\n스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.\n\nAmazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.\n","headline":"Amazon Elasticsearch 인덱스 복구","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/","keywords":"Elasticsearch"}</script>
+    <meta name="description" content="스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.  Amazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="Amazon Elasticsearch 인덱스 복구">
+<meta property="og:url" content="http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/index.html">
+<meta property="og:site_name" content="Kevin의 블로그">
+<meta property="og:description" content="스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.  Amazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-11-08T12:20:14.000Z">
+<meta property="article:modified_time" content="2020-02-15T01:56:19.496Z">
+<meta property="article:author" content="Kevin">
+<meta property="article:tag" content="Elasticsearch">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://usehun0625.github.io/assets/images/beer.jpg"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="5">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a
+            class="header-title-link"
+            href="/"
+            aria-label=""
+        >
+            Kevin의 블로그
+        </a>
+    </div>
+    
+        
+            <a
+                class="header-right-picture "
+                href="#about"
+                aria-label="Open the link: /#about"
+            >
+        
+        
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="5">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a
+                    href="/#about"
+                    aria-label="Read more about the author"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                </a>
+                <h4 class="sidebar-profile-name">Kevin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/"
+                            title="홈"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">홈</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="카테고리"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="태그"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link open-algolia-search"
+                             href="/all-archives"
+                            
+                            title="아카이브"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/usehun0625/" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:usehun0625@gmail.com" target="_blank" rel="noopener" title="Mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="5"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            Amazon Elasticsearch 인덱스 복구
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2019-11-08T21:20:14+09:00">
+	
+		    Nov 08, 2019
+    	
+    </time>
+    
+        <span>in </span>
+        
+    <a class="category-link" href="/categories/%EA%B2%80%EC%83%89%EC%97%94%EC%A7%84/">검색엔진</a>
+
+
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#환경"><span class="toc-text">환경</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Amazon-Elasticsearch"><span class="toc-text">Amazon Elasticsearch</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#복구-과정"><span class="toc-text">복구 과정</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#복구전-인덱스에-저장된-다큐먼트-개수-확인"><span class="toc-text">복구전 인덱스에 저장된 다큐먼트 개수 확인</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#스냅샷-존재-여부-확인"><span class="toc-text">스냅샷 존재 여부 확인</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#스냅샷으로-인덱스-복구"><span class="toc-text">스냅샷으로 인덱스 복구</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#복구후-인덱스-저장된-다큐먼트-개수-확인"><span class="toc-text">복구후 인덱스 저장된 다큐먼트 개수 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#참고자료"><span class="toc-text">참고자료</span></a></li></ol>
+<p>스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.</p>
+<blockquote>
+<p>Amazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.<br>스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.</p>
+</blockquote>
+<a id="more"></a>
+
+<h1 id="환경"><a href="#환경" class="headerlink" title="환경"></a>환경</h1><h2 id="Amazon-Elasticsearch"><a href="#Amazon-Elasticsearch" class="headerlink" title="Amazon Elasticsearch"></a>Amazon Elasticsearch</h2><ul>
+<li>버전 : 6.7</li>
+<li>인스턴스 유형 : t2.small.elasticsearch</li>
+<li>인스턴스 개수 : 2</li>
+<li>볼륨 크기 : 10 GB</li>
+<li>복구할 인덱스 : recovery_test_index</li>
+</ul>
+<h1 id="복구-과정"><a href="#복구-과정" class="headerlink" title="복구 과정"></a>복구 과정</h1><h2 id="복구전-인덱스에-저장된-다큐먼트-개수-확인"><a href="#복구전-인덱스에-저장된-다큐먼트-개수-확인" class="headerlink" title="복구전 인덱스에 저장된 다큐먼트 개수 확인"></a>복구전 인덱스에 저장된 다큐먼트 개수 확인</h2><p>복구전 <em>recovery_test_index</em>에 저장된 다큐먼트가 9개 저장된 것을 확인했다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ curl -XGET <span class="string">'[Elasticsearch_도메인명]/recovery_test_index/_count?pretty'</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">"count"</span> : 9,</span><br><span class="line">  <span class="string">"_shards"</span> : &#123;</span><br><span class="line">    <span class="string">"total"</span> : 5,</span><br><span class="line">    <span class="string">"successful"</span> : 5,</span><br><span class="line">    <span class="string">"skipped"</span> : 0,</span><br><span class="line">    <span class="string">"failed"</span> : 0</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="스냅샷-존재-여부-확인"><a href="#스냅샷-존재-여부-확인" class="headerlink" title="스냅샷 존재 여부 확인"></a>스냅샷 존재 여부 확인</h2><p>Amazon Elasticsearch의 스냅샷 정책은 다음과 같고, 현재 시점( 2019. 11. 5 )에서 복구 희망 시점(2019. 10. 29 )의 스냅샷으로 복구 가능하다는 것을 알 수 있다.</p>
+<blockquote>
+<p><strong>Amazon Elastcisearch 스냅샷 정책</strong><br>모든 Amazon ES 도메인은 자동 스냅샷을 생성하지만 빈도는 다릅니다.</p>
+<ul>
+<li>Elasticsearch 5.3 이상을 실행하는 도메인의 경우 Amazon ES는 시간별 자동 스냅샷을 생성하고 최대 336개의 스냅샷을 14일 동안 보관합니다.</li>
+<li>Elasticsearch 5.1 이하를 실행하는 도메인의 경우 Amazon ES는 일별 자동 스냅샷을 생성하고(지정한 시간 동안) 최대 14개의 스냅샷을 30일 동안 보관합니다.</li>
+</ul>
+</blockquote>
+<br>
+
+<p>Amazon Elasticsearch는 ‘리포지토리’ 단위로 스냅샷을 저장한다.<br>자동 스냅샷 ‘리포지토리’를 확인하기 위하여 다음과 같은 명령으로 ‘리포지토리’를 확인한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ curl -XGET <span class="string">'[Elasticsearch_도메인명]/_snapshot'</span></span><br><span class="line">&#123;<span class="string">"cs-automated"</span>:&#123;<span class="string">"type"</span>:<span class="string">"s3"</span>&#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>“cs-automated” 리포지토리에 복구 희망 시점(2019. 10. 29 )의 스냅샷이 남아 있는지 확인한 결과 “2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51” 스냅샵이 남아 있었다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">$ curl -XGET <span class="string">'[Elasticsearch_도메인명]/_snapshot/cs-automated/_all?pretty'</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">"snapshots"</span> : [ &#123;</span><br><span class="line">    <span class="string">"snapshot"</span> : <span class="string">"2019-10-22t01-47-54.328ccc95-18b0-455e-bf24-abeeeaf18eeb"</span>,</span><br><span class="line">    <span class="string">"uuid"</span> : <span class="string">"LsMY9UfnTn-gR1V751JEQQ"</span>,</span><br><span class="line">    <span class="string">"version_id"</span> : 6070099,</span><br><span class="line">    <span class="string">"version"</span> : <span class="string">"6.7.0"</span>,</span><br><span class="line">    <span class="string">"indices"</span> : [ <span class="string">".opendistro-alerting-alert-history-2019.06.20-000052"</span>,</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line">  &#125;, &#123;</span><br><span class="line">    <span class="string">"snapshot"</span> : <span class="string">"2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51"</span>,</span><br><span class="line">    <span class="string">"uuid"</span> : <span class="string">"HyKrNLXCRdW3DPTMkcPdFg"</span>,</span><br><span class="line">    <span class="string">"version_id"</span> : 6070099,</span><br><span class="line">    <span class="string">"version"</span> : <span class="string">"6.7.0"</span>,</span><br><span class="line">    <span class="string">"indices"</span> : [ </span><br><span class="line"></span><br><span class="line">... 중략 ... </span><br><span class="line"></span><br><span class="line"><span class="string">"recovery_test_index"</span>,  </span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line"> ],</span><br><span class="line">    <span class="string">"include_global_state"</span> : <span class="literal">true</span>,</span><br><span class="line">    <span class="string">"state"</span> : <span class="string">"SUCCESS"</span>,</span><br><span class="line">    <span class="string">"start_time"</span> : <span class="string">"2019-10-29T02:47:55.177Z"</span>,</span><br><span class="line">    <span class="string">"start_time_in_millis"</span> : 1572317275177,</span><br><span class="line">    <span class="string">"end_time"</span> : <span class="string">"2019-10-29T02:51:19.273Z"</span>,</span><br><span class="line">    <span class="string">"end_time_in_millis"</span> : 1572317479273,</span><br><span class="line">    <span class="string">"duration_in_millis"</span> : 204096,</span><br><span class="line">    <span class="string">"failures"</span> : [ ],</span><br><span class="line">    <span class="string">"shards"</span> : &#123;</span><br><span class="line">      <span class="string">"total"</span> : 968,</span><br><span class="line">      <span class="string">"failed"</span> : 0,</span><br><span class="line">      <span class="string">"successful"</span> : 968</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;, &#123;</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br></pre></td></tr></table></figure>
+
+<h2 id="스냅샷으로-인덱스-복구"><a href="#스냅샷으로-인덱스-복구" class="headerlink" title="스냅샷으로 인덱스 복구"></a>스냅샷으로 인덱스 복구</h2><p>복구 하려는 인덱스가 현재 시점에 존재하는 경우에는 충돌이 발생할 수 있다. 따라서 삭제하거나 명칭을 변경해야한다.<br>현재 존재하는 “recovery_test_index” 인덱스를 삭제한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ curl -XDELETE <span class="string">'[Elasticsearch_도메인명]/recovery_test_index'</span></span><br><span class="line">&#123;<span class="string">"acknowledged"</span> : <span class="literal">true</span>&#125;%</span><br></pre></td></tr></table></figure>
+
+<p>인덱스를 복구하기 위하여 복구 희망 시점의 스냅샵 ID를 알아야 한다.<br>위의 “복구 가능 확인 여부”에서 확인한 스냅샵 ID는 “2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51” 이다.</p>
+<p>다음과 같은 명령으로 복구 희망 시점(2019. 10. 29) “recovery_test_index” 인덱스를 복구한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">### https://엔드포인트/_snapshot/리포지토리/스냅샷 ID/_restore</span></span><br><span class="line"><span class="comment">### json : &#123;"indics": 인덱스명 &#125; </span></span><br><span class="line"></span><br><span class="line">$ curl -XPOST <span class="string">'[Elasticsearch_도메인명]/_snapshot/cs-automated/2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51/_restore'</span> -d <span class="string">'&#123;"indices": "recovery_test_index"&#125;'</span> -H <span class="string">'Content-Type: application/json'</span></span><br><span class="line">&#123;<span class="string">"accepted"</span>:<span class="literal">true</span>&#125;%</span><br></pre></td></tr></table></figure>
+
+<h2 id="복구후-인덱스-저장된-다큐먼트-개수-확인"><a href="#복구후-인덱스-저장된-다큐먼트-개수-확인" class="headerlink" title="복구후 인덱스 저장된 다큐먼트 개수 확인"></a>복구후 인덱스 저장된 다큐먼트 개수 확인</h2><p>복구된 <em>recovery_test_index</em> 인덱스에 248265개의 다큐먼트가 저장된 것을 확인했다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ curl -XGET <span class="string">'[Elasticsearch_도메인명]/recovery_test_index/_count?pretty'</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">"count"</span> : 248265,</span><br><span class="line">  <span class="string">"_shards"</span> : &#123;</span><br><span class="line">    <span class="string">"total"</span> : 5,</span><br><span class="line">    <span class="string">"successful"</span> : 5,</span><br><span class="line">    <span class="string">"skipped"</span> : 0,</span><br><span class="line">    <span class="string">"failed"</span> : 0</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="참고자료"><a href="#참고자료" class="headerlink" title="참고자료"></a>참고자료</h1><ul>
+<li><a href="https://docs.aws.amazon.com/ko_kr/elasticsearch-service/latest/developerguide/es-managedomains-snapshots.html#es-managedomains-snapshot-restore" target="_blank" rel="noopener">Amazon Elasticsearch Service 인덱스 스냅샷 작업</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                
+    <a class="tag tag--primary tag--small t-link" href="/tags/Elasticsearch/" rel="tag">Elasticsearch</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
+                    aria-label="PREVIOUS: Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/10/29/pytest-%ED%94%84%EB%A0%88%EC%9E%84%EC%9B%8C%ED%81%AC-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5/"
+                    data-tooltip="pytest 프레임워크 기초 학습"
+                    aria-label="NEXT: pytest 프레임워크 기초 학습"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript" target="_blank" rel="noopener">comments powered by Disqus.</a></noscript>
+</div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2021 Kevin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="5">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
+                    aria-label="PREVIOUS: Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/10/29/pytest-%ED%94%84%EB%A0%88%EC%9E%84%EC%9B%8C%ED%81%AC-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5/"
+                    data-tooltip="pytest 프레임워크 기초 학습"
+                    aria-label="NEXT: pytest 프레임워크 기초 학습"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="5">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                        aria-label="Share on Facebook"
+                    >
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                        aria-label="Share on Twitter"
+                    >
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                        aria-label="Share on Google+"
+                    >
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+            <h4 id="about-card-name">Kevin</h4>
+        
+            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>Developer, DE</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                서울 / 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/curtain.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+        <script>
+          var disqus_config = function() {
+            this.page.url = 'http://usehun0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/';
+              
+            this.page.identifier = '2019/11/08/Amazon-Elasticsearch-인덱스-복구/';
+              
+          };
+          (function() {
+            var d = document, s = d.createElement('script');
+            var disqus_shortname = 'usehun0625';
+            s.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+          })();
+        </script>
+    
+
+
+
+
+    </body>
+</html>

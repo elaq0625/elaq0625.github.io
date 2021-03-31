@@ -1,0 +1,836 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Kevin의 블로그">
+    <title>Fluentd - Http Input Plugin 부하 및 성능 테스트 - Kevin의 블로그</title>
+    <meta name="author" content="Kevin">
+    
+    
+        <link rel="icon" href="http://usehun0625.github.io/assets/images/beer_favaicon.png">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n\nHTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.\n\nFluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트)\nFluentd Http Input Plugin을 사용한 HTTP Listener의 초당 처리량 확인 (성능 테스트)\n\n\n\n\n유의사항이 테스트는 Fluentd에서 지원하는 HTTP input Plugin의 기본적인 동작 성능을 확인하기 위한 목적으로 진행된 것이다. 하나의 머신에서 Data Sender와 Fluentd 환경이 모두 구성되고 테스트용으로 작은 테스트 데이터를 보내고 저장하는 방식으로 확인한 것이기 때문에 절대로 실제 프로덕션의 다양한 환경에서의 성능에 대한 기준지표로 사용하지 않도록 주의해야한다.\n\n테스트 환경\nOS : macOS Catalina v10.15.2\nCPU 3.5GHz, quad core Intel i5\nMemory 16GB 2400 MHz DDR4\nFluentd : v1.8.0\nJmeter : v5.1\n\n테스트 환경 구축테스트를 위하여 다음과 같은 구조를 갖는 디렉터리를 구성한다.\n123/http_listener_fluentd_test├── fluentd.conf ### fluentd 설정파일└── /output ### fluentd 출력 디렉터리\n\nFluentd 설정 파일 추가하고 Fluentd 실행테스트를 위한 Fluentd 중요 동작은 다음과 같다.\n\nhttp 플러그인을 Input 플러그인으로 json 데이터를 입력 받는다.\nInput 플러그인으로 입력 받은 데이터를 파일로 저장한다.\n\nFluentd 중요 동작과 몇 가지 디테일을 추가하여 다음과 같은 Fluentd 설정 파일을 생성한다. 설정 파일 내용중 {프로젝트 디렉터리 경로} 에는 절대 경로를 추가해야한다.\n12345678910111213141516171819202122232425&lt;source&gt;    @type http    port 9880    bind 0.0.0.0    tag http_listener_test    &lt;parse&gt;        @type json    &lt;/parse&gt;&lt;/source&gt;&lt;match http_listener*&gt;    @type file    path &#123;프로젝트 디렉터리 경로&#125;/output/$&#123;tag&#125;_%Y-%m-%d    add_path_suffix true    path_suffix \".log\"    append true    &lt;buffer tag, time&gt;        flush_mode interval        flush_interval 10s    &lt;/buffer&gt;    &lt;format&gt;        @type out_file        output_tag false        output_time true    &lt;/format&gt;&lt;/match&gt;\n\n설정 파일의 플러그인에 대한 자세한 설명은 아래의 Fluentd 공식 문서를 확인한다.\n\nFluentd - Input Plugins : http\nFluentd - Output Plugins : file\n\n다음과 같은 명령으로 Fluentd를 실행한다.\n12$ fluentd -c fluentd.conf -o fluentd.log`\n\n테스트 데이터 전송하여 Fluentd 동작 확인Fluentd가 동작 확인을 위하여 다음과 같은 파일을 생성한다.\n12345678&#123;  \"board_id\": 10,  \"playtime\": 5,  \"minimum_play\": \"Y\",  \"timestamp\": \"2019-11-12T10:00:01Z\",  \"user_id\": 1,  \"interest\": 100&#125;\n다음과 같은 명령으로 앞서 생성한 test.json 데이터를 Fluentd로 전송한다.\n1$ curl -s -H \"Content-Type: application/x-ndjson\" -XPOST http://localhost:9880/http_listener_test --data-binary @test.json\n\nFluentd의 buffer flush interval을 고려하여 1분뒤에 ./http_listener_fluentd_test/output 에 생성된 파일을 확인한다.테스트에서는 http_listener_test_2020-01-13.log 파일이 생성된 것을 확인했으며 파일 내용은 다음과 같다.\n12020-01-13T17:52:09+09:00\t&#123;\"board_id\":10,\"playtime\":5,\"minimum_play\":\"Y\",\"timestamp\":\"2019-11-12T10:00:01Z\",\"user_id\":1,\"interest\":100&#125;\nJmeter 설치 및 Test Plan 설정다음 링크에서 Jmeter를 설치하고 사용법을 확인하면 된다.\n\nhttps://qjadud22.tistory.com/35\n\n2020.1.13 기준 Jmeter 공식 홈페이지에는 Jmeter 5.2 다운로드 링크만 남아있어, 다음과 같이 Jmeter 5.1 다운로드 관련 내용을 남긴다.\n\nhttps://archive.apache.org/dist/jmeter/binaries/ 에서 apache-jmeter-5.1.zip(2019-02-18 19:42, 57M) 검색후 다운로드\n\nJmeter를 실행하고 다음과 같은 Test Plan 구조를 구성한다.\n\nTest Plan\nThread Group\nHTTP Request\nSummary Report\n\n\n\n\n\nThread Group 설정에서 다음과 같은 설정값을 입력한다.\n\nRamp-up period (seconds) : 0\nLoop count : 100\n\nHTTP Request에는 다음과 같은 데이터를 입력한다. 한번의 request에 하나의 데이터가 전송된다.\n\nMethod : POST\nPath : http://localhost:9880/http_listener_test\nBody Data : {“board_id”:10,”playtime”:5,”minimum_play”:”Y”,”timestamp”:”2019-11-12T10:00:01Z”,”user_id”:1,”interest”:100}\n\n테스트부하 테스트부하 테스트는 “동시 전송하는 User 수(Number of Thread)”를 변경하며 진행하고 이 내용은 테스트 케이스로 구분하여 정리한다.\n각각의 테스트 케이스는 동일한 조건으로 3회 실행하고 한 번이라도 오류가 발생하면 해당 케이스는 오류가 발생한 것으로 간주한다.\n테스트 케이스 : Number of Thread = 1003회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0%\n    \n        \n    \n    2회차 실행 결과 : 오류 0%\n    \n        \n    \n    3회차 실행 결과 : 오류 0%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1503회 실행, 3회 오류 발생 (Error : 1.33%, 1.49%, 1.29%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 1.33%\n    \n        \n    \n    2회차 실행 결과 : 오류 1.49%\n    \n        \n    \n    3회차 실행 결과 : 오류 1.29%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1253회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0%\n    \n        \n    \n    2회차 실행 결과 : 오류 0%\n    \n        \n    \n    3회차 실행 결과 : 오류 0%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1373회 실행, 3회 오류 발생 (Error : 0.37%, 0.52%, 0.49%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0.37%\n    \n        \n    \n    2회차 실행 결과 : 오류 0.52%\n    \n        \n    \n    3회차 실행 결과 : 오류 0.49%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1283회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0%\n    \n        \n    \n    2회차 실행 결과 : 오류 0%\n    \n        \n    \n    3회차 실행 결과 : 오류 0%\n    \n        \n    \n\n\n성능 테스트성능 테스트는 부하 테스트에서 오류율 0%를 만족하고, Number of Thread 값이 가장 큰 케이스(Number of Thread = 128)로 진행한다.성능 테스트는 5회 실행하고 Throughput 값, Received 값의 평균을 구한다.5회 실행한 결과의 평균은 Throughput : 3528.82 , Received : 303.256 이다.\n\n    &nbsp;&nbsp;자세히 보기\n    1 ~ 3 회차는 부하테스트 - 테스트 케이스 Number of Thread = 128을 참고 한다.\n    4회차 실행결과 : Throughput - 3662.4, Received - 314.74\n    \n        \n    \n    5회차 실행결과 : Throughput - 3548.7, Received - 304.96\n    \n        \n    \n    5회의 평균을 구하면 다음과 같다.\n    Throughput : 3528.82 \n    (3249.6 + 3564.5 + 3618.9 + 3662.4 + 3548.7) / 5 \n    Received : 303.256 \n    (279.26 + 306.32 + 311.00 + 314.74 + 304.96) / 5 \n\n\n테스트 결과테스트 결과를 정리하면 다음과 같다.\n\n하나의 머신에서 Jmeter를 사용하여 Fluentd HTTP Listener(Http input plugin사용)에 데이터를 전송했을 때, Fluentd쪽에서 오류없이 데이터를 받는 기준으로 3528.82개/초, 303.256KB/초의 데이터를 받아 파일로 저장할 수 있었다.\n\n","dateCreated":"2020-01-10T08:24:11+09:00","dateModified":"2020-02-17T16:58:44+09:00","datePublished":"2020-01-10T08:24:11+09:00","description":"\n\nHTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.\n\nFluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트)\nFluentd Http Input Plugin을 사용한 HTTP Listener의 초당 처리량 확인 (성능 테스트)\n","headline":"Fluentd - Http Input Plugin 부하 및 성능 테스트","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/","keywords":"Flunted, HTTP listener"}</script>
+    <meta name="description" content="HTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.  Fluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트) Fluentd Htt">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="Fluentd - Http Input Plugin 부하 및 성능 테스트">
+<meta property="og:url" content="http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/index.html">
+<meta property="og:site_name" content="Kevin의 블로그">
+<meta property="og:description" content="HTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.  Fluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트) Fluentd Htt">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=100__1.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=100__2.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=100__3.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=150__1.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=150__2.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=150__3.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=125__1.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=125__2.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=125__3.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=137__1.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=137__2.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=137__3.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=128__1.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=128__2.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=128__3.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=128__4.png">
+<meta property="og:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=128__5.png">
+<meta property="article:published_time" content="2020-01-09T23:24:11.000Z">
+<meta property="article:modified_time" content="2020-02-17T07:58:44.292Z">
+<meta property="article:author" content="Kevin">
+<meta property="article:tag" content="Flunted">
+<meta property="article:tag" content="HTTP listener">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://usehun0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=100__1.png">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://usehun0625.github.io/assets/images/beer.jpg"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="5">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a
+            class="header-title-link"
+            href="/"
+            aria-label=""
+        >
+            Kevin의 블로그
+        </a>
+    </div>
+    
+        
+            <a
+                class="header-right-picture "
+                href="#about"
+                aria-label="Open the link: /#about"
+            >
+        
+        
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="5">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a
+                    href="/#about"
+                    aria-label="Read more about the author"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                </a>
+                <h4 class="sidebar-profile-name">Kevin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/"
+                            title="홈"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">홈</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="카테고리"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="태그"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link open-algolia-search"
+                             href="/all-archives"
+                            
+                            title="아카이브"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/usehun0625/" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:usehun0625@gmail.com" target="_blank" rel="noopener" title="Mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="5"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            Fluentd - Http Input Plugin 부하 및 성능 테스트
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2020-01-10T08:24:11+09:00">
+	
+		    Jan 10, 2020
+    	
+    </time>
+    
+        <span>in </span>
+        
+    <a class="category-link" href="/categories/%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%88%98%EC%A7%91/">데이터 수집</a>
+
+
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경-구축"><span class="toc-text">테스트 환경 구축</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-설정-파일-추가하고-Fluentd-실행"><span class="toc-text">Fluentd 설정 파일 추가하고 Fluentd 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#테스트-데이터-전송하여-Fluentd-동작-확인"><span class="toc-text">테스트 데이터 전송하여 Fluentd 동작 확인</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Jmeter-설치-및-Test-Plan-설정"><span class="toc-text">Jmeter 설치 및 Test Plan 설정</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트"><span class="toc-text">테스트</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#부하-테스트"><span class="toc-text">부하 테스트</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-100"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 100</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-150"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 150</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-125"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 125</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-137"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 137</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-128"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 128</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#성능-테스트"><span class="toc-text">성능 테스트</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-결과"><span class="toc-text">테스트 결과</span></a></li></ol>
+
+<p>HTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.</p>
+<ul>
+<li>Fluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트)</li>
+<li>Fluentd Http Input Plugin을 사용한 HTTP Listener의 초당 처리량 확인 (성능 테스트)</li>
+</ul>
+<a id="more"></a>
+
+<blockquote>
+<p>유의사항<br>이 테스트는 Fluentd에서 지원하는 HTTP input Plugin의 기본적인 동작 성능을 확인하기 위한 목적으로 진행된 것이다. 하나의 머신에서 Data Sender와 Fluentd 환경이 모두 구성되고 테스트용으로 작은 테스트 데이터를 보내고 저장하는 방식으로 확인한 것이기 때문에 절대로 실제 프로덕션의 다양한 환경에서의 성능에 대한 기준지표로 사용하지 않도록 주의해야한다.</p>
+</blockquote>
+<h1 id="테스트-환경"><a href="#테스트-환경" class="headerlink" title="테스트 환경"></a>테스트 환경</h1><ul>
+<li>OS : macOS Catalina v10.15.2</li>
+<li>CPU 3.5GHz, quad core Intel i5</li>
+<li>Memory 16GB 2400 MHz DDR4</li>
+<li>Fluentd : v1.8.0</li>
+<li>Jmeter : v5.1</li>
+</ul>
+<h1 id="테스트-환경-구축"><a href="#테스트-환경-구축" class="headerlink" title="테스트 환경 구축"></a>테스트 환경 구축</h1><p>테스트를 위하여 다음과 같은 구조를 갖는 디렉터리를 구성한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">/http_listener_fluentd_test</span><br><span class="line">├── fluentd.conf <span class="comment">### fluentd 설정파일</span></span><br><span class="line">└── /output <span class="comment">### fluentd 출력 디렉터리</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="Fluentd-설정-파일-추가하고-Fluentd-실행"><a href="#Fluentd-설정-파일-추가하고-Fluentd-실행" class="headerlink" title="Fluentd 설정 파일 추가하고 Fluentd 실행"></a>Fluentd 설정 파일 추가하고 Fluentd 실행</h2><p>테스트를 위한 Fluentd 중요 동작은 다음과 같다.</p>
+<ul>
+<li>http 플러그인을 Input 플러그인으로 json 데이터를 입력 받는다.</li>
+<li>Input 플러그인으로 입력 받은 데이터를 파일로 저장한다.</li>
+</ul>
+<p>Fluentd 중요 동작과 몇 가지 디테일을 추가하여 다음과 같은 Fluentd 설정 파일을 생성한다. <strong>설정 파일 내용중 {프로젝트 디렉터리 경로} 에는 절대 경로를 추가해야한다.</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">    @<span class="built_in">type</span> http</span><br><span class="line">    port 9880</span><br><span class="line">    <span class="built_in">bind</span> 0.0.0.0</span><br><span class="line">    tag http_listener_test</span><br><span class="line">    &lt;parse&gt;</span><br><span class="line">        @<span class="built_in">type</span> json</span><br><span class="line">    &lt;/parse&gt;</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">&lt;match http_listener*&gt;</span><br><span class="line">    @<span class="built_in">type</span> file</span><br><span class="line">    path &#123;프로젝트 디렉터리 경로&#125;/output/<span class="variable">$&#123;tag&#125;</span>_%Y-%m-%d</span><br><span class="line">    add_path_suffix <span class="literal">true</span></span><br><span class="line">    path_suffix <span class="string">".log"</span></span><br><span class="line">    append <span class="literal">true</span></span><br><span class="line">    &lt;buffer tag, time&gt;</span><br><span class="line">        flush_mode interval</span><br><span class="line">        flush_interval 10s</span><br><span class="line">    &lt;/buffer&gt;</span><br><span class="line">    &lt;format&gt;</span><br><span class="line">        @<span class="built_in">type</span> out_file</span><br><span class="line">        output_tag <span class="literal">false</span></span><br><span class="line">        output_time <span class="literal">true</span></span><br><span class="line">    &lt;/format&gt;</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>설정 파일의 플러그인에 대한 자세한 설명은 아래의 Fluentd 공식 문서를 확인한다.</p>
+<ul>
+<li><a href="https://docs.fluentd.org/input/http" target="_blank" rel="noopener">Fluentd - Input Plugins : http</a></li>
+<li><a href="https://docs.fluentd.org/output/file" target="_blank" rel="noopener">Fluentd - Output Plugins : file</a></li>
+</ul>
+<p>다음과 같은 명령으로 Fluentd를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ fluentd -c fluentd.conf -o fluentd.log</span><br><span class="line">`</span><br></pre></td></tr></table></figure>
+
+<h2 id="테스트-데이터-전송하여-Fluentd-동작-확인"><a href="#테스트-데이터-전송하여-Fluentd-동작-확인" class="headerlink" title="테스트 데이터 전송하여 Fluentd 동작 확인"></a>테스트 데이터 전송하여 Fluentd 동작 확인</h2><p>Fluentd가 동작 확인을 위하여 다음과 같은 파일을 생성한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="string">"board_id"</span>: 10,</span><br><span class="line">  <span class="string">"playtime"</span>: 5,</span><br><span class="line">  <span class="string">"minimum_play"</span>: <span class="string">"Y"</span>,</span><br><span class="line">  <span class="string">"timestamp"</span>: <span class="string">"2019-11-12T10:00:01Z"</span>,</span><br><span class="line">  <span class="string">"user_id"</span>: 1,</span><br><span class="line">  <span class="string">"interest"</span>: 100</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>다음과 같은 명령으로 앞서 생성한 test.json 데이터를 Fluentd로 전송한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ curl -s -H <span class="string">"Content-Type: application/x-ndjson"</span> -XPOST http://localhost:9880/http_listener_test --data-binary @test.json</span><br></pre></td></tr></table></figure>
+
+<p>Fluentd의 buffer flush interval을 고려하여 1분뒤에 ./http_listener_fluentd_test/output 에 생성된 파일을 확인한다.<br>테스트에서는 http_listener_test_2020-01-13.log 파일이 생성된 것을 확인했으며 파일 내용은 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2020-01-13T17:52:09+09:00	&#123;<span class="string">"board_id"</span>:10,<span class="string">"playtime"</span>:5,<span class="string">"minimum_play"</span>:<span class="string">"Y"</span>,<span class="string">"timestamp"</span>:<span class="string">"2019-11-12T10:00:01Z"</span>,<span class="string">"user_id"</span>:1,<span class="string">"interest"</span>:100&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="Jmeter-설치-및-Test-Plan-설정"><a href="#Jmeter-설치-및-Test-Plan-설정" class="headerlink" title="Jmeter 설치 및 Test Plan 설정"></a>Jmeter 설치 및 Test Plan 설정</h2><p>다음 링크에서 Jmeter를 설치하고 사용법을 확인하면 된다.</p>
+<ul>
+<li><a href="https://qjadud22.tistory.com/35" target="_blank" rel="noopener">https://qjadud22.tistory.com/35</a></li>
+</ul>
+<p>2020.1.13 기준 Jmeter 공식 홈페이지에는 Jmeter 5.2 다운로드 링크만 남아있어, 다음과 같이 Jmeter 5.1 다운로드 관련 내용을 남긴다.</p>
+<ul>
+<li><a href="https://archive.apache.org/dist/jmeter/binaries/" target="_blank" rel="noopener">https://archive.apache.org/dist/jmeter/binaries/</a> 에서 apache-jmeter-5.1.zip(2019-02-18 19:42, 57M) 검색후 다운로드</li>
+</ul>
+<p>Jmeter를 실행하고 다음과 같은 Test Plan 구조를 구성한다.</p>
+<ul>
+<li>Test Plan<ul>
+<li>Thread Group<ul>
+<li>HTTP Request</li>
+<li>Summary Report</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>Thread Group 설정에서 다음과 같은 설정값을 입력한다.</p>
+<ul>
+<li>Ramp-up period (seconds) : 0</li>
+<li>Loop count : 100</li>
+</ul>
+<p>HTTP Request에는 다음과 같은 데이터를 입력한다. 한번의 request에 하나의 데이터가 전송된다.</p>
+<ul>
+<li>Method : POST</li>
+<li>Path : <a href="http://localhost:9880/http_listener_test" target="_blank" rel="noopener">http://localhost:9880/http_listener_test</a></li>
+<li>Body Data : {“board_id”:10,”playtime”:5,”minimum_play”:”Y”,”timestamp”:”2019-11-12T10:00:01Z”,”user_id”:1,”interest”:100}</li>
+</ul>
+<h1 id="테스트"><a href="#테스트" class="headerlink" title="테스트"></a>테스트</h1><h2 id="부하-테스트"><a href="#부하-테스트" class="headerlink" title="부하 테스트"></a>부하 테스트</h2><p>부하 테스트는 “동시 전송하는 User 수(Number of Thread)”를 변경하며 진행하고 이 내용은 테스트 케이스로 구분하여 정리한다.</p>
+<p>각각의 테스트 케이스는 동일한 조건으로 3회 실행하고 한 번이라도 오류가 발생하면 해당 케이스는 오류가 발생한 것으로 간주한다.</p>
+<h3 id="테스트-케이스-Number-of-Thread-100"><a href="#테스트-케이스-Number-of-Thread-100" class="headerlink" title="테스트 케이스 : Number of Thread = 100"></a>테스트 케이스 : Number of Thread = 100</h3><p>3회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)</p>
+<details>
+    <summary><a class="btnfire small stroke">&nbsp;&nbsp;자세히 보기</a></summary>
+    1회차 실행 결과 : 오류 0%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=100__1.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=100__1.png"/>
+    </a>
+    2회차 실행 결과 : 오류 0%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=100__2.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=100__2.png"/>
+    </a>
+    3회차 실행 결과 : 오류 0%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=100__3.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=100__3.png"/>
+    </a>
+</details>
+
+<h3 id="테스트-케이스-Number-of-Thread-150"><a href="#테스트-케이스-Number-of-Thread-150" class="headerlink" title="테스트 케이스 : Number of Thread = 150"></a>테스트 케이스 : Number of Thread = 150</h3><p>3회 실행, 3회 오류 발생 (Error : 1.33%, 1.49%, 1.29%)</p>
+<details>
+    <summary><a class="btnfire small stroke">&nbsp;&nbsp;자세히 보기</a></summary>
+    1회차 실행 결과 : 오류 1.33%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=150__1.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=150__1.png"/>
+    </a>
+    2회차 실행 결과 : 오류 1.49%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=150__2.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=150__2.png"/>
+    </a>
+    3회차 실행 결과 : 오류 1.29%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=150__3.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=150__3.png"/>
+    </a>
+</details>
+
+<h3 id="테스트-케이스-Number-of-Thread-125"><a href="#테스트-케이스-Number-of-Thread-125" class="headerlink" title="테스트 케이스 : Number of Thread = 125"></a>테스트 케이스 : Number of Thread = 125</h3><p>3회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)</p>
+<details>
+    <summary><a class="btnfire small stroke">&nbsp;&nbsp;자세히 보기</a></summary>
+    1회차 실행 결과 : 오류 0%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=125__1.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=125__1.png"/>
+    </a>
+    2회차 실행 결과 : 오류 0%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=125__2.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=125__2.png"/>
+    </a>
+    3회차 실행 결과 : 오류 0%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=125__3.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=125__3.png"/>
+    </a>
+</details>
+
+<h3 id="테스트-케이스-Number-of-Thread-137"><a href="#테스트-케이스-Number-of-Thread-137" class="headerlink" title="테스트 케이스 : Number of Thread = 137"></a>테스트 케이스 : Number of Thread = 137</h3><p>3회 실행, 3회 오류 발생 (Error : 0.37%, 0.52%, 0.49%)</p>
+<details>
+    <summary><a class="btnfire small stroke">&nbsp;&nbsp;자세히 보기</a></summary>
+    1회차 실행 결과 : 오류 0.37%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=137__1.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=137__1.png"/>
+    </a>
+    2회차 실행 결과 : 오류 0.52%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=137__2.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=137__2.png"/>
+    </a>
+    3회차 실행 결과 : 오류 0.49%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=137__3.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=137__3.png"/>
+    </a>
+</details>
+
+<h3 id="테스트-케이스-Number-of-Thread-128"><a href="#테스트-케이스-Number-of-Thread-128" class="headerlink" title="테스트 케이스 : Number of Thread = 128"></a>테스트 케이스 : Number of Thread = 128</h3><p>3회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)</p>
+<details>
+    <summary><a class="btnfire small stroke">&nbsp;&nbsp;자세히 보기</a></summary>
+    1회차 실행 결과 : 오류 0%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__1.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__1.png"/>
+    </a>
+    2회차 실행 결과 : 오류 0%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__2.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__2.png"/>
+    </a>
+    3회차 실행 결과 : 오류 0%<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__3.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__3.png"/>
+    </a>
+</details>
+
+<h2 id="성능-테스트"><a href="#성능-테스트" class="headerlink" title="성능 테스트"></a>성능 테스트</h2><p>성능 테스트는 부하 테스트에서 오류율 0%를 만족하고, Number of Thread 값이 가장 큰 케이스(Number of Thread = 128)로 진행한다.<br>성능 테스트는 5회 실행하고 Throughput 값, Received 값의 평균을 구한다.<br>5회 실행한 결과의 평균은 Throughput : 3528.82 , Received : 303.256 이다.</p>
+<details>
+    <summary><a class="btnfire small stroke">&nbsp;&nbsp;자세히 보기</a></summary>
+    1 ~ 3 회차는 부하테스트 - 테스트 케이스 Number of Thread = 128을 참고 한다.<br>
+    4회차 실행결과 : Throughput - 3662.4, Received - 314.74<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__4.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__4.png"/>
+    </a>
+    5회차 실행결과 : Throughput - 3548.7, Received - 304.96<br>
+    <a href="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__5.png" target="_blank">
+        <img src="/post_attachment/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/Number_of_Thread=128__5.png"/>
+    </a>
+    5회의 평균을 구하면 다음과 같다.<br>
+    Throughput : 3528.82 <br>
+    (3249.6 + 3564.5 + 3618.9 + 3662.4 + 3548.7) / 5 <br>
+    Received : 303.256 <br>
+    (279.26 + 306.32 + 311.00 + 314.74 + 304.96) / 5 <br>
+</details>
+
+<h1 id="테스트-결과"><a href="#테스트-결과" class="headerlink" title="테스트 결과"></a>테스트 결과</h1><p>테스트 결과를 정리하면 다음과 같다.</p>
+<blockquote>
+<p>하나의 머신에서 Jmeter를 사용하여 Fluentd HTTP Listener(Http input plugin사용)에 데이터를 전송했을 때, Fluentd쪽에서 오류없이 데이터를 받는 기준으로 3528.82개/초, 303.256KB/초의 데이터를 받아 파일로 저장할 수 있었다.</p>
+</blockquote>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                
+    <a class="tag tag--primary tag--small t-link" href="/tags/Flunted/" rel="tag">Flunted</a> <a class="tag tag--primary tag--small t-link" href="/tags/HTTP-listener/" rel="tag">HTTP listener</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2020/01/15/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8B%B1-S3-%EC%A0%80%EC%9E%A5-Newline-Character-n-%EA%B0%80-%ED%8F%AC%ED%95%A8%EB%90%9C-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%B2%98%EB%A6%AC-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+&#39;)가 포함된 데이터 처리 테스트"
+                    aria-label="PREVIOUS: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+&#39;)가 포함된 데이터 처리 테스트"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2020/01/03/Elasticsearch-Query-DSL-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5%EC%A0%95%EB%A6%AC-0/"
+                    data-tooltip="Elasticsearch query DSL 기초 학습정리"
+                    aria-label="NEXT: Elasticsearch query DSL 기초 학습정리"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript" target="_blank" rel="noopener">comments powered by Disqus.</a></noscript>
+</div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2021 Kevin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="5">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2020/01/15/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8B%B1-S3-%EC%A0%80%EC%9E%A5-Newline-Character-n-%EA%B0%80-%ED%8F%AC%ED%95%A8%EB%90%9C-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%B2%98%EB%A6%AC-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+&#39;)가 포함된 데이터 처리 테스트"
+                    aria-label="PREVIOUS: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+&#39;)가 포함된 데이터 처리 테스트"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2020/01/03/Elasticsearch-Query-DSL-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5%EC%A0%95%EB%A6%AC-0/"
+                    data-tooltip="Elasticsearch query DSL 기초 학습정리"
+                    aria-label="NEXT: Elasticsearch query DSL 기초 학습정리"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="5">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                        aria-label="Share on Facebook"
+                    >
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                        aria-label="Share on Twitter"
+                    >
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://plus.google.com/share?url=http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                        aria-label="Share on Google+"
+                    >
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+            <h4 id="about-card-name">Kevin</h4>
+        
+            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>Developer, DE</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                서울 / 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/curtain.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+        <script>
+          var disqus_config = function() {
+            this.page.url = 'http://usehun0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/';
+              
+            this.page.identifier = '2020/01/10/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/';
+              
+          };
+          (function() {
+            var d = document, s = d.createElement('script');
+            var disqus_shortname = 'usehun0625';
+            s.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+          })();
+        </script>
+    
+
+
+
+
+    </body>
+</html>

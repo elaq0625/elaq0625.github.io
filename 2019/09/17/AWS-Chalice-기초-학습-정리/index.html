@@ -1,0 +1,737 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Kevin의 블로그">
+    <title>AWS Chalice - 기초 학습 정리 - Kevin의 블로그</title>
+    <meta name="author" content="Kevin">
+    
+    
+        <link rel="icon" href="http://usehun0625.github.io/assets/images/beer_favaicon.png">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\nAWS Chalice Framework에 관하여 학습한 내용을 정리하기 위해서 작성되었다.AWS Chalice Github README를 읽으며 학습한 내용을 정리하였으며, 해당 문서의 모든 내용을 담고 있지 않다.\n\n\n환경\nOS : macOS Catalina v10.15.2\nPython v3.6.5\nchalice v1.12.0\nhttp v1.0.3\n\n환경 구축가상 환경 구성 및 Chalice 설치실습을 위한 디렉터리를 생성하고 생성한 디렉터리로 이동한다.\n12$ mkdir chalice_tutorial$ cd chalice_tutorial\n\n가상 환경을 구성하고 활성화한다. Chalice Framework를 설치한다.\n123$ virtualenv --python=3.6 .venv$ source .venv/bin/activate$ pip install chalice\n\nHTTPIE 설치Chalice Local 실행후 혹은 Chalice Deploy후 동작하는 지 확인하기 위해서 httpie을 설치한다.Post Man이나 다른 소프트웨어를 사용해도 되지만 여기서는 cli 명령을 지원하는 httpie를 설치하여 테스트를 진행한다.다음과 같은 명령으로 httpie를 설치한다.\n1$ pip install httpie\n\n\n학습 내용 정리학습에 필요한 사전 정보아래 페이지는 AWS Lambda와 관련 내용을 다룬다. 원활한 실습을 위해서 해당 문서를 읽고 내용을 숙지하는 것을 권장한다.\n\nhttps://docs.aws.amazon.com/ko_kr/lambda/latest/dg/with-userapp.html\nhttps://docs.aws.amazon.com/ko_kr/lambda/latest/dg/getting-started-create-function.html\n\n프로젝트 생성, 로컬 실행, 배포다음과 같은 명령으로 프로젝트를 생성한다.\n1$ chalice new-project kevin-test-chalice\n\n프로젝트를 생성하면 프로젝트 디렉터리가 생성되며 아래와 같은 구조를 갖는다. 프로젝트 디렉터리 구조에 대한 자세한 설명은 AWS Chalice 기본 학습 공유를 참고한다.\n123456kevin-test-chalice ### 프로젝트명├── .chalice│   └── config.json├── .gitignore├── app.py└── requirements.txt\n\n로컬 실행을 위하여 프로젝트 디렉터리로 이동하여 로컬 Chalice를 실행한다. 여기서는 포트를 8080으로 지정하여 실행하였는데, 포트를 별도로 지정하지 않으면 디폴트 8000 포트로 실행된다.\n1234$ cd kevin-test-chalice$ chalice local --port=8080Restarting local dev server.Serving on http://127.0.0.1:8080\n\nhttp로 http://127.0.0.1:8080/ 에 접근하여 Chalice local이 실행되었는지 확인한다.\n다른 터미널 창을 실행하여 아래와 같이 명령을 치고 응답을 받는다면 Chalice local이 실행되어 동작하는 것이다.\n12345678910$ http http://127.0.0.1:8080HTTP/1.1 200 OKContent-Length: 17Content-Type: application/jsonDate: Thu, 16 Jan 2020 02:14:59 GMTServer: BaseHTTP/0.6 Python/3.7.4&#123;    \"hello\": \"world\"&#125;\n\n배포를 위해서 로컬 실행을 중단하고 Chalice 설정 파일을 수정한다.로컬 실행중인 터미널에서 로컬 실행을 중단하고 .chalice/config.json 파일을 다음과 같이 수정한다.\n12345678910# config.json&#123;  \"version\": \"2.0\",  \"app_name\": \"kevin-chalice-test\",  \"api_gateway_stage\": \"api\",  \"lambda_timeout\": 120,  \"lambda_memory_size\": 1024,  \"iam_role_arn\": ### IAM ROLE 입력,  \"manage_iam_role\": false&#125;\n\n\nLambda 생성 IAM Role이 필요하며, 여기서는 이전에 생성한 IAM Role을 사용했다.\n\n다음과 같은 명령으로 배포한다.\n1234567$ chalice deployCreating deployment package.Updating lambda function: kevin-chalice-test-devUpdating rest APIResources deployed:  - Lambda ARN: ### Lambda ARN  - Rest API URL: ### Lambda 엔드포인트\n\n배포되었는지 확인하기 위하여 Lambda 엔드포인트에 접근한다.\n다음과 같은 명령과 응답을 받았다면 문제없이 배포가 된 것이다.\n1234567891011121314151617$ http ### Lambda 엔드포인트HTTP/1.1 200 OKConnection: keep-aliveContent-Length: 17Content-Type: application/jsonDate: Thu, 16 Jan 2020 04:48:03 GMTVia: 1.1 3626db5788d4ba753824367a6b505422.cloudfront.net (CloudFront)X-Amz-Cf-Id: Xvz9WK_kICLiGvMA347T0qAQ8fIiHF3g6L9fKjfBbCCK3O8KqhW8rQ==X-Amz-Cf-Pop: ICN55-C1X-Amzn-Trace-Id: Root=1-5e1feb03-f5ca4e30973b30307da9b598;Sampled=0X-Cache: Miss from cloudfrontx-amz-apigw-id: GYGomGHlIE0FZGw=x-amzn-RequestId: 05017a53-67ec-49a8-9668-611061860e09&#123;    \"hello\": \"world\"&#125;\n\nStageChalice Framework에서는 Stage를 사용하여 AWS 리소스를 세트 단위로 관리할 수 있다.Chalice 프로젝트를 새롭게 생성하면 기본적으로 dev라는 Stage를 생성하며, 필요에 따라 Stage를 생성하여 사용할 수 있다.다음은 dev, prod Stage를 갖는 Chalice 설정 파일 예시이다.\n123456789101112131415161718192021### config.json&#123;  \"version\": \"2.0\",  \"app_name\": \"kevin-chalice-test\",  \"api_gateway_stage\": \"api\",  \"lambda_timeout\": 120,  \"lambda_memory_size\": 1024,  \"stages\": &#123;    \"dev\": &#123;      \"api_gateway_stage\": \"dev\",      \"autogen_policy\": false,      \"iam_role_arn\": ### IAM ROLE 입력    &#125;,    \"prod\": &#123;      \"api_gateway_stage\": \"prod\",      \"autogen_policy\": false,      \"iam_role_arn\": ### IAM ROLE 입력    &#125;  &#125;,  \"manage_iam_role\":false&#125;\n\n–stage 옵션으로 미리 설정한 Stage를 사용하여 배포한다.다음은 dev Stage로 설정하여 배포하는 명령 예시이다.\n1$ chalice deploy --stage dev\n\n\nStage와 관련된 더 자세한 내용은 다음 링크를 참고한다.\n\nhttps://chalice.readthedocs.io/en/latest/topics/stages.html#example\nhttps://chalice.readthedocs.io/en/latest/topics/configfile.html#stage-specific-configuration\n\nURL parameter요청 URL을 바인딩된 함수의 파라미터로 사용할 수 있다.다음과 같은 app.py를 배포한 상황을 가정하자.\n12345678910111213### app.pyfrom chalice import Chaliceapp = Chalice(app_name='helloworld')CITIES_TO_STATE = &#123;    'seattle': 'WA',    'portland': 'OR',&#125;@app.route('/cities/&#123;city&#125;')def state_of_city(city):    return &#123;'state': CITIES_TO_STATE[city]&#125;\n\n엔드포인트/cities/{city} 요청에서 state_of_city 함수의 city 파라미터에는 {city} 값이 입력된다.예를 들어 엔드포인트/cities/seattle 요청시 state_of_city 함수의 city 파라미터에는 ‘seattle’이 입력된다.\nRequest : Metadata 확인하기, Method 제한하기요청에 대한 메타데이터는 Chalice 인스턴스 app의 속성 객체 current_request를 통하여 확인 할 수 있다.current_requestd에는 아래와 같은 속성이 존재하며, 필요한 메타데이터 속성을 확인하여 사용하면 된다.\n\nquery_params  \nheaders \nuri_params \nmethod \njson_body \nraw_body  \ncontext \nstage_vars \n\n요청 메서드를 제한하기 위해서는 URL 바인딩 데코레이터에 methods 인자를 추가하면 된다.다음은 앞서 설명한 메타데이터 확인(요청 method 확인)과  요청 메서드 제한에 관한 예시코드이다.\n12345678910111213141516171819### app.pyfrom chalice import Chalicefrom chalice import NotFoundErrorapp = Chalice(app_name='helloworld')OBJECTS = &#123;&#125;@app.route('/objects/&#123;key&#125;', methods=['GET', 'PUT'])def myobject(key):    request = app.current_request    if request.method == 'PUT':        OBJECTS[key] = request.json_body    elif request.method == 'GET':        try:            return &#123;key: OBJECTS[key]&#125;        except KeyError:            raise NotFoundError(key)\n\n요청 메서드의 메타데이터 확인을 위하여 app.current_request 속성을 request에 할당했다.메서드 제한하기 위하여 (Get, Put만 허용) URL 바인딩 데코레이터에 methods=[‘GET’, ‘PUT’] 을 추가하였다.\nRequest : Content-TypeURL 바인딩 데코레이터에 content_types 인자를 추가하여 요청 컨텐트 타입을 제한할 수 있다.다음은 application/json 컨텐트 타입에 대한 예시코드이다.\n123456789101112131415161718192021222324### app.pyfrom chalice import Chalice, Response, BadRequestErrorimport jsonapp = Chalice(app_name='content-type')@app.route('/content_type_test', methods=['POST'], content_types=['application/json', 'text/plain'])def func():    json_body = dict()    request = app.current_request    content_type = request.headers['content-type']        try:        if request.headers['content-type'] == 'application/json':            json_body = request.json_body        else:            str_body = request.raw_body.decode(\"utf-8\")            json_body = json.loads(str_body)    except:        raise BadRequestError(msg=\"Fail make request body to JSON!!!\")        json_body[\"content_type\"] = content_type    return json_body\n\n위의 코드에 대하여 간략히 설명하면 다음과 같다.\n\n엔드포인트/content_type_test 요청시 Content Type이 ‘application/json’ 혹은 ‘text/plain’ 일 경우만 응답한다.\nRequst Body 값을 JSON으로  파싱하여 저장하고, 파싱한 JSON 객체에 “content_type” 키와 Content Type 값을 추가하여 응답한다.\n\n다음은 위의 예시 코드를 로컬 실행후 요청, 응답 테스트 예시이다.\n1234567891011121314151617181920212223242526272829303132333435363738### 로컬 실행후 요청, 응답 테스트 예시$ http POST :8000/content_type_test  Content-Type:application/json  param1:=1 param2:=\"123\"HTTP/1.1 200 OKContent-Length: 59Content-Type: application/jsonDate: Fri, 17 Jan 2020 08:32:52 GMTServer: BaseHTTP/0.6 Python/3.6.5&#123;    \"content_type\": \"application/json\",    \"param1\": 1,    \"param2\": 123&#125;$ http POST   :8000/content_type_test   Content-Type:text/plain   param1:=1 param2:=\"123\"HTTP/1.1 200 OKContent-Length: 53Content-Type: application/jsonDate: Fri, 17 Jan 2020 08:34:02 GMTServer: BaseHTTP/0.6 Python/3.6.5&#123;    \"content_type\": \"text/plain\",    \"param1\": 1,    \"param2\": 123&#125;$ http POST   :8000/content_type_test   Content-Type:application/x-www-form-urlencoded   param1:=1 param2:=\"123\"HTTP/1.1 415 Unsupported Media TypeContent-Length: 101Content-Type: application/jsonDate: Fri, 17 Jan 2020 08:35:07 GMTServer: BaseHTTP/0.6 Python/3.6.5&#123;    \"Code\": \"UnsupportedMediaType\",    \"Message\": \"Unsupported media type: application/x-www-form-urlencoded\"&#125;\n\nCustomizing HTTP Response요청에 대한 응답으로 커스터마이징한 응답을 사용할 수 있다.body, status, headers 설정하고 Response 인스턴스를 생성하면 된다.다음은 예시 코드이다.\n12345678910111213141516171819202122232425### app.pyfrom chalice import Chalice, Responseapp = Chalice(app_name='custom-response')@app.route('/customized_response_test')def func():    return Response(body='Status Code 500 Error Test',                    status_code=500,                    headers=&#123;'Content-Type': 'text/plain'&#125;)엔드포인트//customized_response_test 요청시 Status Code 500, Text/plain 타입의 \"Status Code 500 Error Test\" 메세지를 응답한다.Error message요청에 대한 에러가 발생하였을 경우 Error Exception Raise하여 Error Message를 응답할 수 있다.다음은 Error Message 응답 관련 예시코드이다.from chalice import Chalice, NotFoundErrorapp = Chalice(app_name='error-message')@app.route('/not_found_error')def func():    raise NotFoundError(\"not_found_error_test\")\n\n엔드포인트/not_found_error 요청시 Status Code 404, “not_found_error_test” 메세지를 응답한다.\nError Message와 관련된 클래스와 Status code는 다음과 같다.\n\nBadRequestError - Status code 400\nUnauthorizedError - Status code 401\nForbiddenError - Status code 403\nNotFoundError - Status code 404\nConflictError - Status code 409\nUnprocessableEntityError - Status code 422\nTooManyRequestsError - Status code 429\nChaliceViewError - Status code 500\n\n","dateCreated":"2019-09-17T14:11:30+09:00","dateModified":"2020-05-09T22:17:19+09:00","datePublished":"2019-09-17T14:11:30+09:00","description":"\nAWS Chalice Framework에 관하여 학습한 내용을 정리하기 위해서 작성되었다.AWS Chalice Github README를 읽으며 학습한 내용을 정리하였으며, 해당 문서의 모든 내용을 담고 있지 않다.","headline":"AWS Chalice - 기초 학습 정리","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/usehun0625/","mailto:usehun0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/","keywords":"Lambda, Chalice"}</script>
+    <meta name="description" content="AWS Chalice Framework에 관하여 학습한 내용을 정리하기 위해서 작성되었다.AWS Chalice Github README를 읽으며 학습한 내용을 정리하였으며, 해당 문서의 모든 내용을 담고 있지 않다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="AWS Chalice - 기초 학습 정리">
+<meta property="og:url" content="http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/index.html">
+<meta property="og:site_name" content="Kevin의 블로그">
+<meta property="og:description" content="AWS Chalice Framework에 관하여 학습한 내용을 정리하기 위해서 작성되었다.AWS Chalice Github README를 읽으며 학습한 내용을 정리하였으며, 해당 문서의 모든 내용을 담고 있지 않다.">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-09-17T05:11:30.000Z">
+<meta property="article:modified_time" content="2020-05-09T13:17:19.811Z">
+<meta property="article:author" content="Kevin">
+<meta property="article:tag" content="Lambda">
+<meta property="article:tag" content="Chalice">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://usehun0625.github.io/assets/images/beer.jpg"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="5">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a
+            class="header-title-link"
+            href="/"
+            aria-label=""
+        >
+            Kevin의 블로그
+        </a>
+    </div>
+    
+        
+            <a
+                class="header-right-picture "
+                href="#about"
+                aria-label="Open the link: /#about"
+            >
+        
+        
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="5">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a
+                    href="/#about"
+                    aria-label="Read more about the author"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                </a>
+                <h4 class="sidebar-profile-name">Kevin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/"
+                            title="홈"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">홈</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="카테고리"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="태그"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link open-algolia-search"
+                             href="/all-archives"
+                            
+                            title="아카이브"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/usehun0625/" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:usehun0625@gmail.com" target="_blank" rel="noopener" title="Mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="5"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            AWS Chalice - 기초 학습 정리
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2019-09-17T14:11:30+09:00">
+	
+		    Sep 17, 2019
+    	
+    </time>
+    
+        <span>in </span>
+        
+    <a class="category-link" href="/categories/%EC%84%9C%EB%B9%84%EB%A6%AC%EC%8A%A4-%EB%A7%88%EC%9D%B4%ED%81%AC%EB%A1%9C-%ED%94%84%EB%A0%88%EC%9E%84%EC%9B%8C%ED%81%AC/">서비리스 마이크로 프레임워크</a>
+
+
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#환경"><span class="toc-text">환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#환경-구축"><span class="toc-text">환경 구축</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#가상-환경-구성-및-Chalice-설치"><span class="toc-text">가상 환경 구성 및 Chalice 설치</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#HTTPIE-설치"><span class="toc-text">HTTPIE 설치</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#학습-내용-정리"><span class="toc-text">학습 내용 정리</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#학습에-필요한-사전-정보"><span class="toc-text">학습에 필요한 사전 정보</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#프로젝트-생성-로컬-실행-배포"><span class="toc-text">프로젝트 생성, 로컬 실행, 배포</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Stage"><span class="toc-text">Stage</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#URL-parameter"><span class="toc-text">URL parameter</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Request-Metadata-확인하기-Method-제한하기"><span class="toc-text">Request : Metadata 확인하기, Method 제한하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Request-Content-Type"><span class="toc-text">Request : Content-Type</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Customizing-HTTP-Response"><span class="toc-text">Customizing HTTP Response</span></a></li></ol></li></ol>
+<p>AWS Chalice Framework에 관하여 학습한 내용을 정리하기 위해서 작성되었다.<br><a href="https://github.com/aws/chalice" target="_blank" rel="noopener">AWS Chalice Github README</a>를 읽으며 학습한 내용을 정리하였으며, 해당 문서의 모든 내용을 담고 있지 않다.</p>
+<a id="more"></a>
+
+<h1 id="환경"><a href="#환경" class="headerlink" title="환경"></a>환경</h1><ul>
+<li>OS : macOS Catalina v10.15.2</li>
+<li>Python v3.6.5</li>
+<li>chalice v1.12.0</li>
+<li>http v1.0.3</li>
+</ul>
+<h1 id="환경-구축"><a href="#환경-구축" class="headerlink" title="환경 구축"></a>환경 구축</h1><h2 id="가상-환경-구성-및-Chalice-설치"><a href="#가상-환경-구성-및-Chalice-설치" class="headerlink" title="가상 환경 구성 및 Chalice 설치"></a>가상 환경 구성 및 Chalice 설치</h2><p>실습을 위한 디렉터리를 생성하고 생성한 디렉터리로 이동한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ mkdir chalice_tutorial</span><br><span class="line">$ <span class="built_in">cd</span> chalice_tutorial</span><br></pre></td></tr></table></figure>
+
+<p>가상 환경을 구성하고 활성화한다. Chalice Framework를 설치한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ virtualenv --python=3.6 .venv</span><br><span class="line">$ <span class="built_in">source</span> .venv/bin/activate</span><br><span class="line">$ pip install chalice</span><br></pre></td></tr></table></figure>
+
+<h2 id="HTTPIE-설치"><a href="#HTTPIE-설치" class="headerlink" title="HTTPIE 설치"></a>HTTPIE 설치</h2><p>Chalice Local 실행후 혹은 Chalice Deploy후 동작하는 지 확인하기 위해서 httpie을 설치한다.<br>Post Man이나 다른 소프트웨어를 사용해도 되지만 여기서는 cli 명령을 지원하는 httpie를 설치하여 테스트를 진행한다.<br>다음과 같은 명령으로 httpie를 설치한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ pip install httpie</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h1 id="학습-내용-정리"><a href="#학습-내용-정리" class="headerlink" title="학습 내용 정리"></a>학습 내용 정리</h1><h2 id="학습에-필요한-사전-정보"><a href="#학습에-필요한-사전-정보" class="headerlink" title="학습에 필요한 사전 정보"></a>학습에 필요한 사전 정보</h2><p>아래 페이지는 AWS Lambda와 관련 내용을 다룬다. 원활한 실습을 위해서 해당 문서를 읽고 내용을 숙지하는 것을 권장한다.</p>
+<ul>
+<li><a href="https://docs.aws.amazon.com/ko_kr/lambda/latest/dg/with-userapp.html" target="_blank" rel="noopener">https://docs.aws.amazon.com/ko_kr/lambda/latest/dg/with-userapp.html</a></li>
+<li><a href="https://docs.aws.amazon.com/ko_kr/lambda/latest/dg/getting-started-create-function.html" target="_blank" rel="noopener">https://docs.aws.amazon.com/ko_kr/lambda/latest/dg/getting-started-create-function.html</a></li>
+</ul>
+<h2 id="프로젝트-생성-로컬-실행-배포"><a href="#프로젝트-생성-로컬-실행-배포" class="headerlink" title="프로젝트 생성, 로컬 실행, 배포"></a>프로젝트 생성, 로컬 실행, 배포</h2><p>다음과 같은 명령으로 프로젝트를 생성한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ chalice new-project kevin-test-chalice</span><br></pre></td></tr></table></figure>
+
+<p>프로젝트를 생성하면 프로젝트 디렉터리가 생성되며 아래와 같은 구조를 갖는다. 프로젝트 디렉터리 구조에 대한 자세한 설명은 AWS Chalice 기본 학습 공유를 참고한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">kevin-test-chalice <span class="comment">### 프로젝트명</span></span><br><span class="line">├── .chalice</span><br><span class="line">│   └── config.json</span><br><span class="line">├── .gitignore</span><br><span class="line">├── app.py</span><br><span class="line">└── requirements.txt</span><br></pre></td></tr></table></figure>
+
+<p>로컬 실행을 위하여 프로젝트 디렉터리로 이동하여 로컬 Chalice를 실행한다. 여기서는 포트를 8080으로 지정하여 실행하였는데, 포트를 별도로 지정하지 않으면 디폴트 8000 포트로 실행된다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cd</span> kevin-test-chalice</span><br><span class="line">$ chalice <span class="built_in">local</span> --port=8080</span><br><span class="line">Restarting <span class="built_in">local</span> dev server.</span><br><span class="line">Serving on http://127.0.0.1:8080</span><br></pre></td></tr></table></figure>
+
+<p>http로 <a href="http://127.0.0.1:8080/" target="_blank" rel="noopener">http://127.0.0.1:8080/</a> 에 접근하여 Chalice local이 실행되었는지 확인한다.</p>
+<p>다른 터미널 창을 실행하여 아래와 같이 명령을 치고 응답을 받는다면 Chalice local이 실행되어 동작하는 것이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ http http://127.0.0.1:8080</span><br><span class="line">HTTP/1.1 200 OK</span><br><span class="line">Content-Length: 17</span><br><span class="line">Content-Type: application/json</span><br><span class="line">Date: Thu, 16 Jan 2020 02:14:59 GMT</span><br><span class="line">Server: BaseHTTP/0.6 Python/3.7.4</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"hello"</span>: <span class="string">"world"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>배포를 위해서 로컬 실행을 중단하고 Chalice 설정 파일을 수정한다.<br>로컬 실행중인 터미널에서 로컬 실행을 중단하고 .chalice/config.json 파일을 다음과 같이 수정한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># config.json</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">"version"</span>: <span class="string">"2.0"</span>,</span><br><span class="line">  <span class="string">"app_name"</span>: <span class="string">"kevin-chalice-test"</span>,</span><br><span class="line">  <span class="string">"api_gateway_stage"</span>: <span class="string">"api"</span>,</span><br><span class="line">  <span class="string">"lambda_timeout"</span>: 120,</span><br><span class="line">  <span class="string">"lambda_memory_size"</span>: 1024,</span><br><span class="line">  <span class="string">"iam_role_arn"</span>: <span class="comment">### IAM ROLE 입력,</span></span><br><span class="line">  <span class="string">"manage_iam_role"</span>: <span class="literal">false</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Lambda 생성 IAM Role이 필요하며, 여기서는 이전에 생성한 IAM Role을 사용했다.</p>
+</blockquote>
+<p>다음과 같은 명령으로 배포한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ chalice deploy</span><br><span class="line">Creating deployment package.</span><br><span class="line">Updating lambda <span class="keyword">function</span>: kevin-chalice-test-dev</span><br><span class="line">Updating rest API</span><br><span class="line">Resources deployed:</span><br><span class="line">  - Lambda ARN: <span class="comment">### Lambda ARN</span></span><br><span class="line">  - Rest API URL: <span class="comment">### Lambda 엔드포인트</span></span><br></pre></td></tr></table></figure>
+
+<p>배포되었는지 확인하기 위하여 Lambda 엔드포인트에 접근한다.</p>
+<p>다음과 같은 명령과 응답을 받았다면 문제없이 배포가 된 것이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ http <span class="comment">### Lambda 엔드포인트</span></span><br><span class="line">HTTP/1.1 200 OK</span><br><span class="line">Connection: keep-alive</span><br><span class="line">Content-Length: 17</span><br><span class="line">Content-Type: application/json</span><br><span class="line">Date: Thu, 16 Jan 2020 04:48:03 GMT</span><br><span class="line">Via: 1.1 3626db5788d4ba753824367a6b505422.cloudfront.net (CloudFront)</span><br><span class="line">X-Amz-Cf-Id: Xvz9WK_kICLiGvMA347T0qAQ8fIiHF3g6L9fKjfBbCCK3O8KqhW8rQ==</span><br><span class="line">X-Amz-Cf-Pop: ICN55-C1</span><br><span class="line">X-Amzn-Trace-Id: Root=1-5e1feb03-f5ca4e30973b30307da9b598;Sampled=0</span><br><span class="line">X-Cache: Miss from cloudfront</span><br><span class="line">x-amz-apigw-id: GYGomGHlIE0FZGw=</span><br><span class="line">x-amzn-RequestId: 05017a53-67ec-49a8-9668-611061860e09</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"hello"</span>: <span class="string">"world"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Stage"><a href="#Stage" class="headerlink" title="Stage"></a>Stage</h2><p>Chalice Framework에서는 Stage를 사용하여 AWS 리소스를 세트 단위로 관리할 수 있다.<br>Chalice 프로젝트를 새롭게 생성하면 기본적으로 dev라는 Stage를 생성하며, 필요에 따라 Stage를 생성하여 사용할 수 있다.<br>다음은 dev, prod Stage를 갖는 Chalice 설정 파일 예시이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">### config.json</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">"version"</span>: <span class="string">"2.0"</span>,</span><br><span class="line">  <span class="string">"app_name"</span>: <span class="string">"kevin-chalice-test"</span>,</span><br><span class="line">  <span class="string">"api_gateway_stage"</span>: <span class="string">"api"</span>,</span><br><span class="line">  <span class="string">"lambda_timeout"</span>: 120,</span><br><span class="line">  <span class="string">"lambda_memory_size"</span>: 1024,</span><br><span class="line">  <span class="string">"stages"</span>: &#123;</span><br><span class="line">    <span class="string">"dev"</span>: &#123;</span><br><span class="line">      <span class="string">"api_gateway_stage"</span>: <span class="string">"dev"</span>,</span><br><span class="line">      <span class="string">"autogen_policy"</span>: <span class="literal">false</span>,</span><br><span class="line">      <span class="string">"iam_role_arn"</span>: <span class="comment">### IAM ROLE 입력</span></span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">"prod"</span>: &#123;</span><br><span class="line">      <span class="string">"api_gateway_stage"</span>: <span class="string">"prod"</span>,</span><br><span class="line">      <span class="string">"autogen_policy"</span>: <span class="literal">false</span>,</span><br><span class="line">      <span class="string">"iam_role_arn"</span>: <span class="comment">### IAM ROLE 입력</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="string">"manage_iam_role"</span>:<span class="literal">false</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>–stage 옵션으로 미리 설정한 Stage를 사용하여 배포한다.<br>다음은 dev Stage로 설정하여 배포하는 명령 예시이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ chalice deploy --stage dev</span><br></pre></td></tr></table></figure>
+
+
+<p>Stage와 관련된 더 자세한 내용은 다음 링크를 참고한다.</p>
+<ul>
+<li><a href="https://chalice.readthedocs.io/en/latest/topics/stages.html#example" target="_blank" rel="noopener">https://chalice.readthedocs.io/en/latest/topics/stages.html#example</a></li>
+<li><a href="https://chalice.readthedocs.io/en/latest/topics/configfile.html#stage-specific-configuration" target="_blank" rel="noopener">https://chalice.readthedocs.io/en/latest/topics/configfile.html#stage-specific-configuration</a></li>
+</ul>
+<h2 id="URL-parameter"><a href="#URL-parameter" class="headerlink" title="URL parameter"></a>URL parameter</h2><p>요청 URL을 바인딩된 함수의 파라미터로 사용할 수 있다.<br>다음과 같은 app.py를 배포한 상황을 가정하자.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">### app.py</span></span><br><span class="line">from chalice import Chalice</span><br><span class="line"></span><br><span class="line">app = Chalice(app_name=<span class="string">'helloworld'</span>)</span><br><span class="line"></span><br><span class="line">CITIES_TO_STATE = &#123;</span><br><span class="line">    <span class="string">'seattle'</span>: <span class="string">'WA'</span>,</span><br><span class="line">    <span class="string">'portland'</span>: <span class="string">'OR'</span>,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@app.route(<span class="string">'/cities/&#123;city&#125;'</span>)</span><br><span class="line">def state_of_city(city):</span><br><span class="line">    <span class="built_in">return</span> &#123;<span class="string">'state'</span>: CITIES_TO_STATE[city]&#125;</span><br></pre></td></tr></table></figure>
+
+<p>엔드포인트/cities/{city} 요청에서 state_of_city 함수의 city 파라미터에는 {city} 값이 입력된다.<br>예를 들어 엔드포인트/cities/seattle 요청시 state_of_city 함수의 city 파라미터에는 ‘seattle’이 입력된다.</p>
+<h2 id="Request-Metadata-확인하기-Method-제한하기"><a href="#Request-Metadata-확인하기-Method-제한하기" class="headerlink" title="Request : Metadata 확인하기, Method 제한하기"></a>Request : Metadata 확인하기, Method 제한하기</h2><p>요청에 대한 메타데이터는 Chalice 인스턴스 app의 속성 객체 current_request를 통하여 확인 할 수 있다.<br><em>current_requestd</em>에는 아래와 같은 속성이 존재하며, 필요한 메타데이터 속성을 확인하여 사용하면 된다.</p>
+<ul>
+<li>query_params  </li>
+<li>headers </li>
+<li>uri_params </li>
+<li>method </li>
+<li>json_body </li>
+<li>raw_body  </li>
+<li>context </li>
+<li>stage_vars </li>
+</ul>
+<p>요청 메서드를 제한하기 위해서는 URL 바인딩 데코레이터에 methods 인자를 추가하면 된다.<br>다음은 앞서 설명한 메타데이터 확인(요청 method 확인)과  요청 메서드 제한에 관한 예시코드이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">### app.py</span></span><br><span class="line">from chalice import Chalice</span><br><span class="line">from chalice import NotFoundError</span><br><span class="line"></span><br><span class="line">app = Chalice(app_name=<span class="string">'helloworld'</span>)</span><br><span class="line"></span><br><span class="line">OBJECTS = &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@app.route(<span class="string">'/objects/&#123;key&#125;'</span>, methods=[<span class="string">'GET'</span>, <span class="string">'PUT'</span>])</span><br><span class="line">def myobject(key):</span><br><span class="line">    request = app.current_request</span><br><span class="line">    <span class="keyword">if</span> request.method == <span class="string">'PUT'</span>:</span><br><span class="line">        OBJECTS[key] = request.json_body</span><br><span class="line">    <span class="keyword">elif</span> request.method == <span class="string">'GET'</span>:</span><br><span class="line">        try:</span><br><span class="line">            <span class="built_in">return</span> &#123;key: OBJECTS[key]&#125;</span><br><span class="line">        except KeyError:</span><br><span class="line">            raise NotFoundError(key)</span><br></pre></td></tr></table></figure>
+
+<p>요청 메서드의 메타데이터 확인을 위하여 app.current_request 속성을 request에 할당했다.<br>메서드 제한하기 위하여 (Get, Put만 허용) URL 바인딩 데코레이터에 methods=[‘GET’, ‘PUT’] 을 추가하였다.</p>
+<h2 id="Request-Content-Type"><a href="#Request-Content-Type" class="headerlink" title="Request : Content-Type"></a>Request : Content-Type</h2><p>URL 바인딩 데코레이터에 content_types 인자를 추가하여 요청 컨텐트 타입을 제한할 수 있다.<br>다음은 application/json 컨텐트 타입에 대한 예시코드이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">### app.py</span></span><br><span class="line">from chalice import Chalice, Response, BadRequestError</span><br><span class="line">import json</span><br><span class="line"></span><br><span class="line">app = Chalice(app_name=<span class="string">'content-type'</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">@app.route(<span class="string">'/content_type_test'</span>, methods=[<span class="string">'POST'</span>], content_types=[<span class="string">'application/json'</span>, <span class="string">'text/plain'</span>])</span><br><span class="line">def func():</span><br><span class="line">    json_body = dict()</span><br><span class="line">    request = app.current_request</span><br><span class="line">    content_type = request.headers[<span class="string">'content-type'</span>]</span><br><span class="line">    </span><br><span class="line">    try:</span><br><span class="line">        <span class="keyword">if</span> request.headers[<span class="string">'content-type'</span>] == <span class="string">'application/json'</span>:</span><br><span class="line">            json_body = request.json_body</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            str_body = request.raw_body.decode(<span class="string">"utf-8"</span>)</span><br><span class="line">            json_body = json.loads(str_body)</span><br><span class="line">    except:</span><br><span class="line">        raise BadRequestError(msg=<span class="string">"Fail make request body to JSON!!!"</span>)</span><br><span class="line">    </span><br><span class="line">    json_body[<span class="string">"content_type"</span>] = content_type</span><br><span class="line">    <span class="built_in">return</span> json_body</span><br></pre></td></tr></table></figure>
+
+<p>위의 코드에 대하여 간략히 설명하면 다음과 같다.</p>
+<ul>
+<li>엔드포인트/content_type_test 요청시 Content Type이 ‘application/json’ 혹은 ‘text/plain’ 일 경우만 응답한다.</li>
+<li>Requst Body 값을 JSON으로  파싱하여 저장하고, 파싱한 JSON 객체에 “content_type” 키와 Content Type 값을 추가하여 응답한다.</li>
+</ul>
+<p>다음은 위의 예시 코드를 로컬 실행후 요청, 응답 테스트 예시이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">### 로컬 실행후 요청, 응답 테스트 예시</span></span><br><span class="line">$ http POST :8000/content_type_test  Content-Type:application/json  param1:=1 param2:=<span class="string">"123"</span></span><br><span class="line">HTTP/1.1 200 OK</span><br><span class="line">Content-Length: 59</span><br><span class="line">Content-Type: application/json</span><br><span class="line">Date: Fri, 17 Jan 2020 08:32:52 GMT</span><br><span class="line">Server: BaseHTTP/0.6 Python/3.6.5</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"content_type"</span>: <span class="string">"application/json"</span>,</span><br><span class="line">    <span class="string">"param1"</span>: 1,</span><br><span class="line">    <span class="string">"param2"</span>: 123</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">$ http POST   :8000/content_type_test   Content-Type:text/plain   param1:=1 param2:=<span class="string">"123"</span></span><br><span class="line">HTTP/1.1 200 OK</span><br><span class="line">Content-Length: 53</span><br><span class="line">Content-Type: application/json</span><br><span class="line">Date: Fri, 17 Jan 2020 08:34:02 GMT</span><br><span class="line">Server: BaseHTTP/0.6 Python/3.6.5</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"content_type"</span>: <span class="string">"text/plain"</span>,</span><br><span class="line">    <span class="string">"param1"</span>: 1,</span><br><span class="line">    <span class="string">"param2"</span>: 123</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">$ http POST   :8000/content_type_test   Content-Type:application/x-www-form-urlencoded   param1:=1 param2:=<span class="string">"123"</span></span><br><span class="line">HTTP/1.1 415 Unsupported Media Type</span><br><span class="line">Content-Length: 101</span><br><span class="line">Content-Type: application/json</span><br><span class="line">Date: Fri, 17 Jan 2020 08:35:07 GMT</span><br><span class="line">Server: BaseHTTP/0.6 Python/3.6.5</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"Code"</span>: <span class="string">"UnsupportedMediaType"</span>,</span><br><span class="line">    <span class="string">"Message"</span>: <span class="string">"Unsupported media type: application/x-www-form-urlencoded"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Customizing-HTTP-Response"><a href="#Customizing-HTTP-Response" class="headerlink" title="Customizing HTTP Response"></a>Customizing HTTP Response</h2><p>요청에 대한 응답으로 커스터마이징한 응답을 사용할 수 있다.<br>body, status, headers 설정하고 Response 인스턴스를 생성하면 된다.<br>다음은 예시 코드이다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">### app.py</span></span><br><span class="line">from chalice import Chalice, Response</span><br><span class="line"></span><br><span class="line">app = Chalice(app_name=<span class="string">'custom-response'</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">@app.route(<span class="string">'/customized_response_test'</span>)</span><br><span class="line">def func():</span><br><span class="line">    <span class="built_in">return</span> Response(body=<span class="string">'Status Code 500 Error Test'</span>,</span><br><span class="line">                    status_code=500,</span><br><span class="line">                    headers=&#123;<span class="string">'Content-Type'</span>: <span class="string">'text/plain'</span>&#125;)</span><br><span class="line">엔드포인트//customized_response_test 요청시 Status Code 500, Text/plain 타입의 <span class="string">"Status Code 500 Error Test"</span> 메세지를 응답한다.</span><br><span class="line"></span><br><span class="line">Error message</span><br><span class="line">요청에 대한 에러가 발생하였을 경우 Error Exception Raise하여 Error Message를 응답할 수 있다.</span><br><span class="line"></span><br><span class="line">다음은 Error Message 응답 관련 예시코드이다.</span><br><span class="line"></span><br><span class="line">from chalice import Chalice, NotFoundError</span><br><span class="line"></span><br><span class="line">app = Chalice(app_name=<span class="string">'error-message'</span>)</span><br><span class="line"></span><br><span class="line">@app.route(<span class="string">'/not_found_error'</span>)</span><br><span class="line">def func():</span><br><span class="line">    raise NotFoundError(<span class="string">"not_found_error_test"</span>)</span><br></pre></td></tr></table></figure>
+
+<p>엔드포인트/not_found_error 요청시 Status Code 404, “not_found_error_test” 메세지를 응답한다.</p>
+<p>Error Message와 관련된 클래스와 Status code는 다음과 같다.</p>
+<ul>
+<li>BadRequestError - Status code 400</li>
+<li>UnauthorizedError - Status code 401</li>
+<li>ForbiddenError - Status code 403</li>
+<li>NotFoundError - Status code 404</li>
+<li>ConflictError - Status code 409</li>
+<li>UnprocessableEntityError - Status code 422</li>
+<li>TooManyRequestsError - Status code 429</li>
+<li>ChaliceViewError - Status code 500</li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                
+    <a class="tag tag--primary tag--small t-link" href="/tags/Chalice/" rel="tag">Chalice</a> <a class="tag tag--primary tag--small t-link" href="/tags/Lambda/" rel="tag">Lambda</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/09/18/Fluentd-%EC%9E%85%EB%A0%A5-%EB%A1%9C%EA%B7%B8-%ED%8C%8C%EC%9D%BC-%EA%B2%BD%EB%A1%9C-%EC%84%A4%EC%A0%95%EC%97%90-%EA%B4%80%ED%95%9C-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Fluentd - 입력 로그 파일 경로 설정에 관한 테스트"
+                    aria-label="PREVIOUS: Fluentd - 입력 로그 파일 경로 설정에 관한 테스트"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/09/16/Docker-%EC%BB%A8%ED%85%8C%EC%9D%B4%EB%84%88%EA%B0%84-%EB%B3%BC%EB%A5%A8-%EA%B3%B5%EC%9C%A0-%EC%A1%B0%EC%82%AC/"
+                    data-tooltip="Docker 컨테이너간 볼륨 공유 조사"
+                    aria-label="NEXT: Docker 컨테이너간 볼륨 공유 조사"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript" target="_blank" rel="noopener">comments powered by Disqus.</a></noscript>
+</div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2021 Kevin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="5">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/09/18/Fluentd-%EC%9E%85%EB%A0%A5-%EB%A1%9C%EA%B7%B8-%ED%8C%8C%EC%9D%BC-%EA%B2%BD%EB%A1%9C-%EC%84%A4%EC%A0%95%EC%97%90-%EA%B4%80%ED%95%9C-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    data-tooltip="Fluentd - 입력 로그 파일 경로 설정에 관한 테스트"
+                    aria-label="PREVIOUS: Fluentd - 입력 로그 파일 경로 설정에 관한 테스트"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/09/16/Docker-%EC%BB%A8%ED%85%8C%EC%9D%B4%EB%84%88%EA%B0%84-%EB%B3%BC%EB%A5%A8-%EA%B3%B5%EC%9C%A0-%EC%A1%B0%EC%82%AC/"
+                    data-tooltip="Docker 컨테이너간 볼륨 공유 조사"
+                    aria-label="NEXT: Docker 컨테이너간 볼륨 공유 조사"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="5">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                        aria-label="Share on Facebook"
+                    >
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://twitter.com/intent/tweet?text=http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                        aria-label="Share on Twitter"
+                    >
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://plus.google.com/share?url=http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                        aria-label="Share on Google+"
+                    >
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+            <h4 id="about-card-name">Kevin</h4>
+        
+            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>Developer, DE</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                서울 / 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/curtain.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+        <script>
+          var disqus_config = function() {
+            this.page.url = 'http://usehun0625.github.io/2019/09/17/AWS-Chalice-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/';
+              
+            this.page.identifier = '2019/09/17/AWS-Chalice-기초-학습-정리/';
+              
+          };
+          (function() {
+            var d = document, s = d.createElement('script');
+            var disqus_shortname = 'usehun0625';
+            s.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+          })();
+        </script>
+    
+
+
+
+
+    </body>
+</html>

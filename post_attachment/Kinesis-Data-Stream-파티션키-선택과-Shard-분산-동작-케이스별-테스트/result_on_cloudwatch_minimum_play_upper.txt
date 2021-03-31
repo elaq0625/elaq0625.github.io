@@ -1,0 +1,86 @@
+### NO. 1 Shard Input records per minute
+
+$ aws cloudwatch get-metric-statistics --namespace "AWS/Kinesis" --metric-name "IncomingRecords" --dimensions Name=StreamName,Value=kevin-partition-key-ds-test Name=ShardId,Value=shardId-000000000000 --start-time="2019-11-25T14:01:00+0900" --end-time="2019-11-25T14:20:00+0900" --period 1 --statistics Sum
+{
+    "Datapoints": [],
+    "Label": "IncomingRecords"
+}
+
+
+
+
+
+### NO. 2 Shard Input records per minute
+
+$ aws cloudwatch get-metric-statistics --namespace "AWS/Kinesis" --metric-name "IncomingRecords" --dimensions Name=StreamName,Value=kevin-partition-key-ds-test Name=ShardId,Value=shardId-000000000001 --start-time="2019-11-25T14:01:00+0900" --end-time="2019-11-25T14:20:00+0900" --period 1 --statistics Sum
+{
+    "Datapoints": [
+        {
+            "Timestamp": "2019-11-25T05:03:00Z",
+            "Sum": 6000.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:04:00Z",
+            "Sum": 6000.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:08:00Z",
+            "Sum": 6000.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:02:00Z",
+            "Sum": 6000.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:11:00Z",
+            "Sum": 4100.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:07:00Z",
+            "Sum": 6000.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:10:00Z",
+            "Sum": 6000.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:01:00Z",
+            "Sum": 2000.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:06:00Z",
+            "Sum": 6000.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:05:00Z",
+            "Sum": 6000.0,
+            "Unit": "Count"
+        },
+        {
+            "Timestamp": "2019-11-25T05:09:00Z",
+            "Sum": 5900.0,
+            "Unit": "Count"
+        }
+    ],
+    "Label": "IncomingRecords"
+}
+
+
+
+
+### NO. 3 Shard Input records per minute
+
+$ aws cloudwatch get-metric-statistics --namespace "AWS/Kinesis" --metric-name "IncomingRecords" --dimensions Name=StreamName,Value=kevin-partition-key-ds-test Name=ShardId,Value=shardId-000000000002 --start-time="2019-11-25T14:01:00+0900" --end-time="2019-11-25T14:20:00+0900" --period 1 --statistics Sum
+{
+    "Datapoints": [],
+    "Label": "IncomingRecords"
+}
