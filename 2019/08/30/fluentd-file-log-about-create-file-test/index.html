@@ -1,0 +1,783 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Kevin의 블로그">
+    <title>Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트 - Kevin의 블로그</title>
+    <meta name="author" content="Kevin">
+    
+    
+        <link rel="icon" href="http://elaq0625.github.io/assets/images/beer_favaicon.png">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n로그 파일 생성 시점과 로그 저장 시점이 다른 경우, 같은 경우를 테스트하며 Fluentd가 어떻게 동작하는 지 확인한다.\n\n이해를 돕기 위해서 쉘 명령으로 예를 들면 다음과 같다.\n1234### 로그 파일 생성 시점과 로그 저장 시점이 다른 경우### \"log_test_1\" 로그를 기록한다고 가정한다.$ touch log_file.log$ echo \"log_test_1\" &gt;&gt; log_file.log\n\n123### 로그 파일 생성 시점과 로그 저장 시점이 같은 경우### \"log_test_1\" 로그를 기록한다고 가정한다.$ echo \"log_test_1\" &gt; log_file.log\n테스트 환경테스트 환경은 다음과 같다.\n\nOS : macOS Mojave 10.14.6\ntd-agent : v1.0.2\n\n테스트에 필요한 사전 지식Fluentd 관련\nFluentd - Input Plugin : tail\nFluentd - Output Plugin : file\nFluentd - Install by .dmg Package (MacOS X)\n\ntd-agent의 파일 감지 여부와 read_from_head 옵션“td-agent가 수집하려는 파일의 감지 여부(position file에 저장되는 정보)”와 “read_from_head 옵션”에 따라 “파일에서 로그수집 시작위치”가 다르다.이와 관련하여 혼동되는 부분이 있을 것이라 생각되어 다음과 같이 정리한다.\n\n\n\n수집하려는 파일의 감지여부\nread_from_file 옵션\n로그수집 시작위치\n\n\n\nO\ntrue\n파일의 bottom부터 수집\n\n\nO\nfalse\n파일의 bottom부터 수집\n\n\nX\ntrue\n파일의 head부터 수집\n\n\nX\nfalse\n파일의 bottom부터 수집\n\n\n더 자세한 내용은 Fluentd - Input Plugin : tail : read_from_head에서 확인한다.\n테스트td-agent의 설정 파일의 경로를 다음과 같이 지정한다.\n1/Users/kevin/dev/fluentd/test/file_creation_time/config/td-agent.conf\n\n1234567$ cat /opt/td-agent/usr/sbin/td-agent... 중략 ...ENV[\"FLUENT_CONF\"]=\"/Users/kevin/dev/fluentd/test/file_creation_time/config/td-agent.conf\"... 중략 ...\n\ntd-agent 설정 파일을 다음과 같이 수정하고 실행한다.\n123456789101112131415161718192021222324252627$ cat config/td-agent.log &lt;source&gt;  @type tail  tag file_creation_time  path /Users/kevin/dev/fluentd/test/file_creation_time/source/*  pos_file /Users/kevin/dev/fluentd/test/file_creation_time/pos/pos_file.pos  &lt;parse&gt;    @type none  &lt;/parse&gt;  refresh_interval 5s&lt;/source&gt;&lt;match file_creation_time*&gt;  @type file  path /Users/kevin/dev/fluentd/test/file_creation_time/match/$&#123;tag&#125;_output  add_path_suffix true  path_suffix \".log\"  append true  &lt;buffer tag&gt;    flush_mode interval    flush_interval 10s  &lt;/buffer&gt;  &lt;format&gt;    @type out_file    output_tag false    output_time true  &lt;/format&gt;&lt;/match&gt;\n\ntd-agnet 실행\n1$ sudo launchctl load td-agent.plist\n\n\n케이스 : 파일 생성 시점과 로그 저장 시점이 다른 경우다음과 같이 입력용 파일을 생성한다.\n1$ touch source/different_time_input.log\n\n다음과 같이 td-agent가 파일 생성을 인지한 것을 확인한다.\n12345$ cat /var/log/td-agent/td-agent.log... 중략 ...2019-08-29 17:40:32 +0900 [info]: #0 following tail of /Users/kevin/dev/fluentd/test/file_creation_time/source/different_time_input.log\n\n다음과 같이 입력용 파일에 로그를 저장한다.\n1$ echo \"log_test_line1\" &gt;&gt; source/differnt_time_input.log\n\n출력용 파일을 확인하면 다음과 같다.\n12$ tail -10f match/file_creation_time_output.log2019-08-29T17:41:03+09:00\t&#123;\"message\":\"log_test_line1\"&#125;\n\n다시 한번 다음과 같이 파일에 로그를 저장한다.\n123$ echo \"log_test_line2\" &gt;&gt; source/differnt_time_input.log$ echo \"log_test_line3\" &gt;&gt; source/differnt_time_input.log$ echo \"log_test_line4\" &gt;&gt; source/differnt_time_input.log\n\n출력용 파일을 확인하면 다음과 같다.\n12345$ tail -10f match/file_creation_time_output.log2019-08-29T17:41:03+09:00\t&#123;\"message\":\"log_test_line1\"&#125;2019-08-29T17:49:58+09:00\t&#123;\"message\":\"log_test_line2\"&#125;2019-08-29T17:50:04+09:00\t&#123;\"message\":\"log_test_line3\"&#125;2019-08-29T17:50:10+09:00\t&#123;\"message\":\"log_test_line4\"&#125;\n\n테스트 결과를 정리하면 다음과 같다.\n\n입력용 파일을 생성하면 td-agent 파일 생성을 인지한다.입력용 파일 생성 이후 로그를 저장하면 출력용 파일에 로그의 형식은 바뀌지만 로그가 저장된다.\n\n\n케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우다음과 같이 로그를 파일에 저장한다.\n1$ echo \"log_test_line1\" &gt; source/same_time_input.log\n\n\n별도의 파일 생성없이 로그를 저장하여도 파일이 생성되고 로그가 저장된다.\n\n다음과 같이 td-agent가 파일 생성을 인지한 것을 확인한다.\n12345$ cat /var/log/td-agent/td-agent.log... 중략 ...2019-08-29 18:10:42 +0900 [info]: #0 following tail of /Users/kevin/dev/fluentd/test/file_creation_time/source/same_time_input.log\n\n출력용 파일에 로그가 저장 되었는지 확인 하였지만 로그가 저장된 것을 확인할 수 없다.\n1234$ tail -10f match/file_creation_time_output.log... 중략 ...### same_time_input.log의 로그 내용이 출력되지 않음.\n\n다음과 같이 입력용 파일에 로그를 저장한다.\n1$ echo \"log_test_line2\" &gt;&gt; source/same_time_input.log\n\n출력용 파일을 확인하면 다음과 같다.\n12345$ tail -10f match/file_creation_time_output.log... 중략 ...2019-08-29T18:16:57+09:00\t&#123;\"message\":\"log_test_line2\"&#125;\n\n다시 한번 다음과 같이 파일에 로그를 저장한다.\n123$ echo \"log_test_line3\" &gt;&gt; source/same_time_input.log$ echo \"log_test_line4\" &gt;&gt; source/same_time_input.log$ echo \"log_test_line5\" &gt;&gt; source/same_time_input.log\n출력용 파일을 확인하면 다음과 같다.\n12345678$ tail -10f match/file_creation_time_output.log... 중략 ...2019-08-29T18:16:57+09:00\t&#123;\"message\":\"log_test_line2\"&#125;2019-08-29T18:18:40+09:00\t&#123;\"message\":\"log_test_line3\"&#125;2019-08-29T18:18:43+09:00\t&#123;\"message\":\"log_test_line4\"&#125;2019-08-29T18:18:46+09:00\t&#123;\"message\":\"log_test_line5\"&#125;\n\n테스트 결과를 정리하면 다음과 같다.\n\n입력용 파일을 생성과 동시에 로그를 저장하면 td-agent는 파일 생성은 인지하지만 출력용 파일을 확인 하였을 때 로그가 저장되지 않는다.입력용 파일 생성 이후 로그를 저장하면 출력용 파일에 로그의 형식은 바뀌지만  로그가 저장된다.\n\n\n케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우 (read_from_head 옵션을 true로 설정하였을 때)케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우와 동일한 설정, 과정에서 Source plug in - tail의 read_from_head 옵션을 변경하고 td-agent의 동작을 확인한다.\ntd-agent 설정 파일에 다음과 같은 옵션을 source plugin에 추가한다.\n\nread_from_head = true\n\n12345678910111213141516171819202122232425262728$ cat config/td-agent.log &lt;source&gt;  @type tail  tag file_creation_time  read_from_head = true   path /Users/kevin/dev/fluentd/test/file_creation_time/source/*  pos_file /Users/kevin/dev/fluentd/test/file_creation_time/pos/pos_file.pos  &lt;parse&gt;    @type none  &lt;/parse&gt;  refresh_interval 5s&lt;/source&gt;&lt;match file_creation_time*&gt;  @type file  path /Users/kevin/dev/fluentd/test/file_creation_time/match/$&#123;tag&#125;_output  add_path_suffix true  path_suffix \".log\"  append true  &lt;buffer tag&gt;    flush_mode interval    flush_interval 10s  &lt;/buffer&gt;  &lt;format&gt;    @type out_file    output_tag false    output_time true  &lt;/format&gt;&lt;/match&gt;\n\ntd-agent를 실행한다.\n1$ sudo launchctl load td-agent.plist\n\n다음과 같이 로그를 파일에 저장한다.\n1$ echo \"log_test_line1\" &gt; source/same_time_head_input.log\n\n다음과 같이 td-agent가 파일 생성을 인지한 것을 확인한다.\n12345$ cat /var/log/td-agent/td-agent.log... 중략 ...2019-08-29 18:39:16 +0900 [info]: #0 following tail of /Users/kevin/dev/fluentd/test/file_creation_time/source/same_time_head_input.log\n\n출력용 파일을 확인하면 로그가 저장된 것을 알 수 있다.\n12345$ tail -10f match/file_creation_time_output.log... 중략 ...2019-08-29T18:39:16+09:00\t&#123;\"message\":\"log_test_line1\"&#125;\n\n다시 한번 다음과 같이 파일에 로그를 저장한다.\n123$ echo \"log_test_line2\" &gt;&gt; source/same_time_head_input.log$ echo \"log_test_line3\" &gt;&gt; source/same_time_head_input.log$ echo \"log_test_line4\" &gt;&gt; source/same_time_head_input.log\n\n출력용 파일을 확인하면 다음과 같다.\n12345678$ tail -10f match/file_creation_time_output.log... 중략 ...2019-08-29T18:39:16+09:00\t&#123;\"message\":\"log_test_line1\"&#125;2019-08-29T18:44:52+09:00\t&#123;\"message\":\"log_test_line2\"&#125;2019-08-29T18:44:58+09:00\t&#123;\"message\":\"log_test_line3\"&#125;2019-08-29T18:45:02+09:00\t&#123;\"message\":\"log_test_line4\"&#125;\n\n테스트 결과를 정리하면 다음과 같다.\n\nread_from_head = true인 경우에는 입력용 파일을 생성과 동시에 로그를 저장하면 td-agent는 파일 생성을 인지하고 출력용 파일에도 로그가 저장된다.입력용 파일에 로그를 저장하면 출력용 파일에 로그의 형식은 바뀌지만  로그가 저장된다.\n\n\n테스트 결과테스트 결과를 정리하면 다음과 같다.\n\n파일 생성 시점과 로그 저장 시점이 다른 경우\n\n입력용 로그 파일에 저장된 로그는 출력용 파일에 저장됨을 알 수 있다.\n\n파일 생성 시점과 로그 저장 시점이 다른 경우\n\n입력용 로그 파일 생성 시점의 저장된 로그는 출력용 파일에 저장되지 않는다.\n생성이후 저장된 로그는 출력용 파일에 저장된다.\n만약 파일 생성 시점의 로그를 저장하고자 한다면 Input plug in - tail의 read_from_head 옵션은 true로 한다.\n\n\n","dateCreated":"2019-08-30T19:32:30+09:00","dateModified":"2021-04-11T17:07:23+09:00","datePublished":"2019-08-30T19:32:30+09:00","description":"\n로그 파일 생성 시점과 로그 저장 시점이 다른 경우, 같은 경우를 테스트하며 Fluentd가 어떻게 동작하는 지 확인한다.","headline":"Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/","keywords":"Fluentd, read_from_head"}</script>
+    <meta name="description" content="로그 파일 생성 시점과 로그 저장 시점이 다른 경우, 같은 경우를 테스트하며 Fluentd가 어떻게 동작하는 지 확인한다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트">
+<meta property="og:url" content="http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/index.html">
+<meta property="og:site_name" content="Kevin의 블로그">
+<meta property="og:description" content="로그 파일 생성 시점과 로그 저장 시점이 다른 경우, 같은 경우를 테스트하며 Fluentd가 어떻게 동작하는 지 확인한다.">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-08-30T10:32:30.000Z">
+<meta property="article:modified_time" content="2021-04-11T08:07:23.929Z">
+<meta property="article:author" content="Kevin">
+<meta property="article:tag" content="Fluentd">
+<meta property="article:tag" content="read_from_head">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://elaq0625.github.io/assets/images/beer.jpg"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="5">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a
+            class="header-title-link"
+            href="/"
+            aria-label=""
+        >
+            Kevin의 블로그
+        </a>
+    </div>
+    
+        
+            <a
+                class="header-right-picture "
+                href="#about"
+                aria-label="Open the link: /#about"
+            >
+        
+        
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="5">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a
+                    href="/#about"
+                    aria-label="Read more about the author"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                </a>
+                <h4 class="sidebar-profile-name">Kevin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/"
+                            title="홈"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">홈</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="카테고리"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="태그"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link open-algolia-search"
+                             href="/all-archives"
+                            
+                            title="아카이브"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/elaq0625/" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:elaq0625@gmail.com" target="_blank" rel="noopener" title="Mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="5"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2019-08-30T19:32:30+09:00">
+	
+		    Aug 30, 2019
+    	
+    </time>
+    
+        <span>in </span>
+        
+    <a class="category-link" href="/categories/%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%88%98%EC%A7%91/">데이터 수집</a>
+
+
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트에-필요한-사전-지식"><span class="toc-text">테스트에 필요한 사전 지식</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-관련"><span class="toc-text">Fluentd 관련</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#td-agent의-파일-감지-여부와-read-from-head-옵션"><span class="toc-text">td-agent의 파일 감지 여부와 read_from_head 옵션</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트"><span class="toc-text">테스트</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#케이스-파일-생성-시점과-로그-저장-시점이-다른-경우"><span class="toc-text">케이스 : 파일 생성 시점과 로그 저장 시점이 다른 경우</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#케이스-파일-생성-시점과-로그-저장-시점이-같은-경우"><span class="toc-text">케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#케이스-파일-생성-시점과-로그-저장-시점이-같은-경우-read-from-head-옵션을-true로-설정하였을-때"><span class="toc-text">케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우 (read_from_head 옵션을 true로 설정하였을 때)</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-결과"><span class="toc-text">테스트 결과</span></a></li></ol>
+<p><em>로그 파일 생성 시점</em>과 <em>로그 저장 시점</em>이 다른 경우, 같은 경우를 테스트하며 Fluentd가 어떻게 동작하는 지 확인한다.</p>
+<a id="more"></a>
+<p>이해를 돕기 위해서 쉘 명령으로 예를 들면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">### 로그 파일 생성 시점과 로그 저장 시점이 다른 경우</span></span><br><span class="line"><span class="comment">### "log_test_1" 로그를 기록한다고 가정한다.</span></span><br><span class="line">$ touch log_file.log</span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_1"</span> &gt;&gt; log_file.log</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">### 로그 파일 생성 시점과 로그 저장 시점이 같은 경우</span></span><br><span class="line"><span class="comment">### "log_test_1" 로그를 기록한다고 가정한다.</span></span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_1"</span> &gt; log_file.log</span><br></pre></td></tr></table></figure>
+<h1 id="테스트-환경"><a href="#테스트-환경" class="headerlink" title="테스트 환경"></a>테스트 환경</h1><p>테스트 환경은 다음과 같다.</p>
+<ul>
+<li>OS : macOS Mojave 10.14.6</li>
+<li>td-agent : v1.0.2</li>
+</ul>
+<h1 id="테스트에-필요한-사전-지식"><a href="#테스트에-필요한-사전-지식" class="headerlink" title="테스트에 필요한 사전 지식"></a>테스트에 필요한 사전 지식</h1><h2 id="Fluentd-관련"><a href="#Fluentd-관련" class="headerlink" title="Fluentd 관련"></a>Fluentd 관련</h2><ul>
+<li><a href="https://docs.fluentd.org/input/tail" target="_blank" rel="noopener">Fluentd - Input Plugin : tail</a></li>
+<li><a href="https://docs.fluentd.org/output/file" target="_blank" rel="noopener">Fluentd - Output Plugin : file</a></li>
+<li><a href="https://docs.fluentd.org/installation/install-by-dmg" target="_blank" rel="noopener">Fluentd - Install by .dmg Package (MacOS X)</a></li>
+</ul>
+<h2 id="td-agent의-파일-감지-여부와-read-from-head-옵션"><a href="#td-agent의-파일-감지-여부와-read-from-head-옵션" class="headerlink" title="td-agent의 파일 감지 여부와 read_from_head 옵션"></a>td-agent의 파일 감지 여부와 read_from_head 옵션</h2><p>“td-agent가 수집하려는 파일의 감지 여부(position file에 저장되는 정보)”와 “read_from_head 옵션”에 따라 “파일에서 로그수집 시작위치”가 다르다.<br>이와 관련하여 혼동되는 부분이 있을 것이라 생각되어 다음과 같이 정리한다.</p>
+<table>
+<thead>
+<tr>
+<th align="center">수집하려는 파일의 감지여부</th>
+<th align="center">read_from_file 옵션</th>
+<th align="center">로그수집 시작위치</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">O</td>
+<td align="center">true</td>
+<td align="center">파일의 bottom부터 수집</td>
+</tr>
+<tr>
+<td align="center">O</td>
+<td align="center">false</td>
+<td align="center">파일의 bottom부터 수집</td>
+</tr>
+<tr>
+<td align="center">X</td>
+<td align="center">true</td>
+<td align="center">파일의 head부터 수집</td>
+</tr>
+<tr>
+<td align="center">X</td>
+<td align="center">false</td>
+<td align="center">파일의 bottom부터 수집</td>
+</tr>
+</tbody></table>
+<p>더 자세한 내용은 <a href="https://docs.fluentd.org/input/tail#read_from_head" target="_blank" rel="noopener">Fluentd - Input Plugin : tail : read_from_head</a>에서 확인한다.</p>
+<h1 id="테스트"><a href="#테스트" class="headerlink" title="테스트"></a>테스트</h1><p>td-agent의 설정 파일의 경로를 다음과 같이 지정한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/Users/kevin/dev/fluentd/<span class="built_in">test</span>/file_creation_time/config/td-agent.conf</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ cat /opt/td-agent/usr/sbin/td-agent</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line">ENV[<span class="string">"FLUENT_CONF"</span>]=<span class="string">"/Users/kevin/dev/fluentd/test/file_creation_time/config/td-agent.conf"</span></span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br></pre></td></tr></table></figure>
+
+<p>td-agent 설정 파일을 다음과 같이 수정하고 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">$ cat config/td-agent.log </span><br><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">  @<span class="built_in">type</span> tail</span><br><span class="line">  tag file_creation_time</span><br><span class="line">  path /Users/kevin/dev/fluentd/<span class="built_in">test</span>/file_creation_time/<span class="built_in">source</span>/*</span><br><span class="line">  pos_file /Users/kevin/dev/fluentd/<span class="built_in">test</span>/file_creation_time/pos/pos_file.pos</span><br><span class="line">  &lt;parse&gt;</span><br><span class="line">    @<span class="built_in">type</span> none</span><br><span class="line">  &lt;/parse&gt;</span><br><span class="line">  refresh_interval 5s</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">&lt;match file_creation_time*&gt;</span><br><span class="line">  @<span class="built_in">type</span> file</span><br><span class="line">  path /Users/kevin/dev/fluentd/<span class="built_in">test</span>/file_creation_time/match/<span class="variable">$&#123;tag&#125;</span>_output</span><br><span class="line">  add_path_suffix <span class="literal">true</span></span><br><span class="line">  path_suffix <span class="string">".log"</span></span><br><span class="line">  append <span class="literal">true</span></span><br><span class="line">  &lt;buffer tag&gt;</span><br><span class="line">    flush_mode interval</span><br><span class="line">    flush_interval 10s</span><br><span class="line">  &lt;/buffer&gt;</span><br><span class="line">  &lt;format&gt;</span><br><span class="line">    @<span class="built_in">type</span> out_file</span><br><span class="line">    output_tag <span class="literal">false</span></span><br><span class="line">    output_time <span class="literal">true</span></span><br><span class="line">  &lt;/format&gt;</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>td-agnet 실행</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo launchctl load td-agent.plist</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="케이스-파일-생성-시점과-로그-저장-시점이-다른-경우"><a href="#케이스-파일-생성-시점과-로그-저장-시점이-다른-경우" class="headerlink" title="케이스 : 파일 생성 시점과 로그 저장 시점이 다른 경우"></a>케이스 : 파일 생성 시점과 로그 저장 시점이 다른 경우</h2><p>다음과 같이 입력용 파일을 생성한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ touch <span class="built_in">source</span>/different_time_input.log</span><br></pre></td></tr></table></figure>
+
+<p>다음과 같이 td-agent가 파일 생성을 인지한 것을 확인한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ cat /var/<span class="built_in">log</span>/td-agent/td-agent.log</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line">2019-08-29 17:40:32 +0900 [info]: <span class="comment">#0 following tail of /Users/kevin/dev/fluentd/test/file_creation_time/source/different_time_input.log</span></span><br></pre></td></tr></table></figure>
+
+<p>다음과 같이 입력용 파일에 로그를 저장한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line1"</span> &gt;&gt; <span class="built_in">source</span>/differnt_time_input.log</span><br></pre></td></tr></table></figure>
+
+<p>출력용 파일을 확인하면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ tail -10f match/file_creation_time_output.log</span><br><span class="line">2019-08-29T17:41:03+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line1"</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>다시 한번 다음과 같이 파일에 로그를 저장한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line2"</span> &gt;&gt; <span class="built_in">source</span>/differnt_time_input.log</span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line3"</span> &gt;&gt; <span class="built_in">source</span>/differnt_time_input.log</span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line4"</span> &gt;&gt; <span class="built_in">source</span>/differnt_time_input.log</span><br></pre></td></tr></table></figure>
+
+<p>출력용 파일을 확인하면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ tail -10f match/file_creation_time_output.log</span><br><span class="line">2019-08-29T17:41:03+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line1"</span>&#125;</span><br><span class="line">2019-08-29T17:49:58+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line2"</span>&#125;</span><br><span class="line">2019-08-29T17:50:04+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line3"</span>&#125;</span><br><span class="line">2019-08-29T17:50:10+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line4"</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>테스트 결과를 정리하면 다음과 같다.</p>
+<blockquote>
+<p>입력용 파일을 생성하면 td-agent 파일 생성을 인지한다.<br>입력용 파일 생성 이후 로그를 저장하면 출력용 파일에 로그의 형식은 바뀌지만 로그가 저장된다.</p>
+</blockquote>
+<hr>
+<h2 id="케이스-파일-생성-시점과-로그-저장-시점이-같은-경우"><a href="#케이스-파일-생성-시점과-로그-저장-시점이-같은-경우" class="headerlink" title="케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우"></a>케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우</h2><p>다음과 같이 로그를 파일에 저장한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line1"</span> &gt; <span class="built_in">source</span>/same_time_input.log</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>별도의 파일 생성없이 로그를 저장하여도 파일이 생성되고 로그가 저장된다.</p>
+</blockquote>
+<p>다음과 같이 td-agent가 파일 생성을 인지한 것을 확인한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ cat /var/<span class="built_in">log</span>/td-agent/td-agent.log</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line">2019-08-29 18:10:42 +0900 [info]: <span class="comment">#0 following tail of /Users/kevin/dev/fluentd/test/file_creation_time/source/same_time_input.log</span></span><br></pre></td></tr></table></figure>
+
+<p>출력용 파일에 로그가 저장 되었는지 확인 하였지만 로그가 저장된 것을 확인할 수 없다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ tail -10f match/file_creation_time_output.log</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"><span class="comment">### same_time_input.log의 로그 내용이 출력되지 않음.</span></span><br></pre></td></tr></table></figure>
+
+<p>다음과 같이 입력용 파일에 로그를 저장한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line2"</span> &gt;&gt; <span class="built_in">source</span>/same_time_input.log</span><br></pre></td></tr></table></figure>
+
+<p>출력용 파일을 확인하면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ tail -10f match/file_creation_time_output.log</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line">2019-08-29T18:16:57+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line2"</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>다시 한번 다음과 같이 파일에 로그를 저장한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line3"</span> &gt;&gt; <span class="built_in">source</span>/same_time_input.log</span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line4"</span> &gt;&gt; <span class="built_in">source</span>/same_time_input.log</span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line5"</span> &gt;&gt; <span class="built_in">source</span>/same_time_input.log</span><br></pre></td></tr></table></figure>
+<p>출력용 파일을 확인하면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ tail -10f match/file_creation_time_output.log</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line">2019-08-29T18:16:57+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line2"</span>&#125;</span><br><span class="line">2019-08-29T18:18:40+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line3"</span>&#125;</span><br><span class="line">2019-08-29T18:18:43+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line4"</span>&#125;</span><br><span class="line">2019-08-29T18:18:46+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line5"</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>테스트 결과를 정리하면 다음과 같다.</p>
+<blockquote>
+<p>입력용 파일을 생성과 동시에 로그를 저장하면 td-agent는 파일 생성은 인지하지만 출력용 파일을 확인 하였을 때 로그가 저장되지 않는다.<br>입력용 파일 생성 이후 로그를 저장하면 출력용 파일에 로그의 형식은 바뀌지만  로그가 저장된다.</p>
+</blockquote>
+<hr>
+<h2 id="케이스-파일-생성-시점과-로그-저장-시점이-같은-경우-read-from-head-옵션을-true로-설정하였을-때"><a href="#케이스-파일-생성-시점과-로그-저장-시점이-같은-경우-read-from-head-옵션을-true로-설정하였을-때" class="headerlink" title="케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우 (read_from_head 옵션을 true로 설정하였을 때)"></a>케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우 (read_from_head 옵션을 true로 설정하였을 때)</h2><p><strong>케이스 : 파일 생성 시점과 로그 저장 시점이 같은 경우</strong>와 동일한 설정, 과정에서 Source plug in - tail의 read_from_head 옵션을 변경하고 td-agent의 동작을 확인한다.</p>
+<p>td-agent 설정 파일에 다음과 같은 옵션을 source plugin에 추가한다.</p>
+<ul>
+<li>read_from_head = true</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">$ cat config/td-agent.log </span><br><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">  @<span class="built_in">type</span> tail</span><br><span class="line">  tag file_creation_time</span><br><span class="line">  read_from_head = <span class="literal">true</span> </span><br><span class="line">  path /Users/kevin/dev/fluentd/<span class="built_in">test</span>/file_creation_time/<span class="built_in">source</span>/*</span><br><span class="line">  pos_file /Users/kevin/dev/fluentd/<span class="built_in">test</span>/file_creation_time/pos/pos_file.pos</span><br><span class="line">  &lt;parse&gt;</span><br><span class="line">    @<span class="built_in">type</span> none</span><br><span class="line">  &lt;/parse&gt;</span><br><span class="line">  refresh_interval 5s</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line">&lt;match file_creation_time*&gt;</span><br><span class="line">  @<span class="built_in">type</span> file</span><br><span class="line">  path /Users/kevin/dev/fluentd/<span class="built_in">test</span>/file_creation_time/match/<span class="variable">$&#123;tag&#125;</span>_output</span><br><span class="line">  add_path_suffix <span class="literal">true</span></span><br><span class="line">  path_suffix <span class="string">".log"</span></span><br><span class="line">  append <span class="literal">true</span></span><br><span class="line">  &lt;buffer tag&gt;</span><br><span class="line">    flush_mode interval</span><br><span class="line">    flush_interval 10s</span><br><span class="line">  &lt;/buffer&gt;</span><br><span class="line">  &lt;format&gt;</span><br><span class="line">    @<span class="built_in">type</span> out_file</span><br><span class="line">    output_tag <span class="literal">false</span></span><br><span class="line">    output_time <span class="literal">true</span></span><br><span class="line">  &lt;/format&gt;</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>td-agent를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo launchctl load td-agent.plist</span><br></pre></td></tr></table></figure>
+
+<p>다음과 같이 로그를 파일에 저장한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line1"</span> &gt; <span class="built_in">source</span>/same_time_head_input.log</span><br></pre></td></tr></table></figure>
+
+<p>다음과 같이 td-agent가 파일 생성을 인지한 것을 확인한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ cat /var/<span class="built_in">log</span>/td-agent/td-agent.log</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line">2019-08-29 18:39:16 +0900 [info]: <span class="comment">#0 following tail of /Users/kevin/dev/fluentd/test/file_creation_time/source/same_time_head_input.log</span></span><br></pre></td></tr></table></figure>
+
+<p>출력용 파일을 확인하면 로그가 저장된 것을 알 수 있다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ tail -10f match/file_creation_time_output.log</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line">2019-08-29T18:39:16+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line1"</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>다시 한번 다음과 같이 파일에 로그를 저장한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line2"</span> &gt;&gt; <span class="built_in">source</span>/same_time_head_input.log</span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line3"</span> &gt;&gt; <span class="built_in">source</span>/same_time_head_input.log</span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"log_test_line4"</span> &gt;&gt; <span class="built_in">source</span>/same_time_head_input.log</span><br></pre></td></tr></table></figure>
+
+<p>출력용 파일을 확인하면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ tail -10f match/file_creation_time_output.log</span><br><span class="line"></span><br><span class="line">... 중략 ...</span><br><span class="line"></span><br><span class="line">2019-08-29T18:39:16+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line1"</span>&#125;</span><br><span class="line">2019-08-29T18:44:52+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line2"</span>&#125;</span><br><span class="line">2019-08-29T18:44:58+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line3"</span>&#125;</span><br><span class="line">2019-08-29T18:45:02+09:00	&#123;<span class="string">"message"</span>:<span class="string">"log_test_line4"</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>테스트 결과를 정리하면 다음과 같다.</p>
+<blockquote>
+<p>read_from_head = true인 경우에는 입력용 파일을 생성과 동시에 로그를 저장하면 td-agent는 파일 생성을 인지하고 출력용 파일에도 로그가 저장된다.<br>입력용 파일에 로그를 저장하면 출력용 파일에 로그의 형식은 바뀌지만  로그가 저장된다.</p>
+</blockquote>
+<hr>
+<h1 id="테스트-결과"><a href="#테스트-결과" class="headerlink" title="테스트 결과"></a>테스트 결과</h1><p>테스트 결과를 정리하면 다음과 같다.</p>
+<blockquote>
+<p>파일 생성 시점과 로그 저장 시점이 다른 경우</p>
+<ul>
+<li>입력용 로그 파일에 저장된 로그는 출력용 파일에 저장됨을 알 수 있다.</li>
+</ul>
+<p>파일 생성 시점과 로그 저장 시점이 다른 경우</p>
+<ul>
+<li>입력용 로그 파일 생성 시점의 저장된 로그는 출력용 파일에 저장되지 않는다.</li>
+<li>생성이후 저장된 로그는 출력용 파일에 저장된다.</li>
+<li>만약 파일 생성 시점의 로그를 저장하고자 한다면 Input plug in - tail의 read_from_head 옵션은 true로 한다.</li>
+</ul>
+</blockquote>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                
+    <a class="tag tag--primary tag--small t-link" href="/tags/Fluentd/" rel="tag">Fluentd</a> <a class="tag tag--primary tag--small t-link" href="/tags/read-from-head/" rel="tag">read_from_head</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/09/16/docker-beginner-studing/"
+                    data-tooltip="Docker 기초 학습 정리"
+                    aria-label="PREVIOUS: Docker 기초 학습 정리"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/08/27/boto3-s3-kinesis-data-firehose-beginnr-practice/"
+                    data-tooltip="Boto3로 S3, Kinesis Data Firehose 기초 실습"
+                    aria-label="NEXT: Boto3로 S3, Kinesis Data Firehose 기초 실습"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript" target="_blank" rel="noopener">comments powered by Disqus.</a></noscript>
+</div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2021 Kevin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="5">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/09/16/docker-beginner-studing/"
+                    data-tooltip="Docker 기초 학습 정리"
+                    aria-label="PREVIOUS: Docker 기초 학습 정리"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/08/27/boto3-s3-kinesis-data-firehose-beginnr-practice/"
+                    data-tooltip="Boto3로 S3, Kinesis Data Firehose 기초 실습"
+                    aria-label="NEXT: Boto3로 S3, Kinesis Data Firehose 기초 실습"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="5">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"
+                        aria-label="Share on Facebook"
+                    >
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"
+                        aria-label="Share on Twitter"
+                    >
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/"
+                        aria-label="Share on Google+"
+                    >
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+            <h4 id="about-card-name">Kevin</h4>
+        
+            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>Developer, DE</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                서울 / 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/curtain.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+        <script>
+          var disqus_config = function() {
+            this.page.url = 'http://elaq0625.github.io/2019/08/30/fluentd-file-log-about-create-file-test/';
+              
+            this.page.identifier = '2019/08/30/fluentd-file-log-about-create-file-test/';
+              
+          };
+          (function() {
+            var d = document, s = d.createElement('script');
+            var disqus_shortname = 'elaq0625';
+            s.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+          })();
+        </script>
+    
+
+
+
+
+    </body>
+</html>

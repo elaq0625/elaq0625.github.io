@@ -1,0 +1,802 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Kevin의 블로그">
+    <title>pytest 프레임워크 기초 학습 - Kevin의 블로그</title>
+    <meta name="author" content="Kevin">
+    
+    
+        <link rel="icon" href="http://elaq0625.github.io/assets/images/beer_favaicon.png">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n\nPytest framework에 관하여 학습한 내용을 정리한다.Pytest 공식 가이드 문서 내용 중 아래의 카테고리에 해당하는 내용을 정리했다.\n\nAsserting with the assert statement\npytest fixtures: explicit, modular, scalable\nParametrizing fixtures and test functions\n\n\n테스트 환경학습 환경은 다음과 같다.\n\nPython 버전 : 3.7.4\nPyTest 버전 : 5.2.1\n\n환경 구성다음과 같이 가상환경을 구성하고 활성화한다.\n1234$ mkdir pytest_tutorial$ cd pytest_tutorial$ virtualenv --python=python3.7 .venv$ source .venv/bin/activate\n\n다음 명령어를 입력해 Pytest 모듈을 설치한다.\n1$ pip install pytest\n\nPytest 실행 및 실행 결과 설명테스트 코드 실행하는 방법다음과 같은 명령어를 입력 할 경우 실행된 디렉토리 안에서 Pytest가 정해진 규칙에 따라 Test 함수를 찾아 실행하게 된다.\n1$ pytest\n\nPytest가 어떤 규칙을 통해 Testcode를 찾아 실행하는 지에 대한 자세한 내용은 아래 문서를 통하여 확인할 수 있다.\n\nhttps://docs.pytest.org/en/latest/goodpractices.html#test-discovery\n\n사용자가 지정한 규칙에 해당하는 테스트 코드 실행하는 방법여러 개의 파일로 이루어진 테스트 코드를 테스트 하고자 한다면 와일드 카드(*)나 디렉터리 지정, 모듈 지정 등을 활용하면 된다.\n12345678# 와일드 카드 활용$ pytest test_*.py# 모듈 지정$ pytest mymodule# 현재 디렉터리 지정$ pytest ./\n\n다음과 같이 2개의 테스트 코드 test_sample_1.py, test_sample_2.py를 작성한다.\n123456# test_sample_1.pydef func(x):    return x + 1def test_answer1():    assert func(3) == 5\n\n123456test_sample_2.pydef func(x):    return x * 2def test_answer2():    assert func(3) == 6\n\n2개의 테스트 코드(test_sample_1.py, test_sample_2.py)를 실행하기 위하여 test_sample_*로 지정하여 테스트를 실행한다.\n12345678910111213141516171819$ pytest test_sample_*==================================== test session starts ====================================platform darwin -- Python 3.7.4, pytest-5.1.1, py-1.8.0, pluggy-0.12.0rootdir: /Users/kevin/dev/pytest_tutorialcollected 2 itemstest_sample_1.py F                                                                    [ 50%]test_sample_2.py .                                                                    [100%]========================================= FAILURES ==========================================_______________________________________ test_answer1 ________________________________________    def test_answer1():&gt;       assert func(3) == 5E       assert 4 == 5E        +  where 4 = func(3)test_sample_1.py:6: AssertionError================================ 1 failed, 1 passed in 0.07s ================================\n\n위의 결과를 통해 지정한 테스트 코드가 정상적으로 실행되었음을 알 수 있다.참고한 문서는 다음과 같다.\n\nhttps://docs.pytest.org/en/latest/goodpractices.html#good-integration-practices\n\nAssert 기능과 Pytest 실행 결과 설명assert 기능을 테스트 하기 위해 다음과 같은 테스트 코드를 작성한다.\n123456# test_sample.pydef func(x):    return x + 1def test_answer():    assert func(3) == 5\n\nPytest framework는 이름의 prefix가 “test”인 함수만 인식하여 테스트 한다. 더 자세한 내용은 Conventions for Python test discovery에서 확인한다.test_answer를 실행하여 func(3)의 값과 5를 같은지 비교하고 같지 않다면 AssertionError를 발생시킨다.\n123456789101112131415161718$ pytest test_sample.py==================================== test session starts ====================================platform darwin -- Python 3.7.4, pytest-5.1.1, py-1.8.0, pluggy-0.12.0rootdir: /Users/kevin/dev/pytest_tutorialcollected 1 item test_sample.py F                                                                      [100%] ========================================= FAILURES ==========================================________________________________________ test_answer ________________________________________     def test_answer():&gt;       assert func(3) == 5E       assert 4 == 5E        +  where 4 = func(3) test_sample.py:6: AssertionError===================================== 1 failed in 0.04s =====================================\n\n테스트 결과를 설명하면 다음과 같다.\n\ncollected 2 item : 2개의 테스트 코드가 테스트 대상으로 확인되었다는 것을 의미한다.\ntest_sample_1.py F : test_sample_1.py에 있는 테스트 함수가 테스트 실패(F) 했음을 의미한다.\ntest_sample_2.py . : test_sample_2.py에 있는 테스트 함수가 테스트 통과(.) 했음을 의미한다.\n== …중략… == FAILURES == …중략… == : 테스트 통과 실패한 테스트 코드에 대하여 설명한다.\ndef test_answer1()부터 Assertion Error까지의 내용: 실제 func(3) 결과값은 4이고 기대값은 5이기 때문에 AssertionError가 발생하였음을 의미한다.\n\n참고한 문서는 다음과 같다.\n\nhttps://docs.pytest.org/en/latest/getting-started.html#create-your-first-test\n\nAssertError 발생 시 출력되는 메시지AssertError시 출력되는 메세지 추가하기Pytest framework로 테스트 실패 시 출력되는 메세지를 추가할 수가 있다.\n다음과 같이 짝수이면 테스트 통과하는 테스트 코드를 작성한다.\n1234# test_sample.pydef test_even():    a = 11    assert a % 2 == 0, \"value was odd, should be even\"\n\n실행 결과는 다음과 같다. \n12345678910111213141516171819$ pytest test_sample.py============================================================================================================ test session starts ============================================================================================================platform darwin -- Python 3.7.4, pytest-5.1.1, py-1.8.0, pluggy-0.12.0rootdir: /Users/kevin/dev/pytest_tutorialcollected 1 item                                                                                                                                                                                                                            test_sample.py F                                                                                                                                                                                                                      [100%]================================================================================================================= FAILURES ==================================================================================================================_________________________________________________________________________________________________________________ test_even _________________________________________________________________________________________________________________    def test_even():        a = 11&gt;       assert a % 2 == 0, \"value was odd, should be even\"E       AssertionError: value was odd, should be evenE       assert (11 % 2) == 0test_sample.py:10: AssertionError============================================================================================================= 1 failed in 0.05s =============================================================================================================\n\n테스트 결과에서 에러 메시지 중 “value was odd, should be even”가 출력된 것을 통해 추가한 오류 메시지가 정상 출력된 것을 확인할 수 있다.다음은 참고한 문서이다.\n\nhttps://docs.pytest.org/en/latest/assert.html#asserting-with-the-assert-statement\n\nAssertError시 출력되는 메세지 변경하기PyTest는 테스트 통과 실패시 아래 예시와 같은 형태로 테스트 통과 실패 이유를 알려준다.\n12345678910========================================= FAILURES ==========================================________________________________________ test_answer ________________________________________     def test_answer():&gt;       assert func(3) == 5E       assert 4 == 5E        +  where 4 = func(3) test_sample.py:6: AssertionError===================================== 1 failed in 0.04s =====================================\n\n간단한 테스트는 테스트 통과 실패 이유를 쉽게 찾을 수 있지만, 테스트 코드가 복잡해지거나 테스트 수가 많아진다면 테스트 통과 실패 이유를 확인하는 데에 많은 시간이 소모된다.따라서 테스트 통과 실패 이유를 직관적으로 출력할 수 있다면 테스트 통과 실패 이유를 확인하는 데에 적은 시간을 소모할 수 있을 것이라 판단된다.\nPyTest에서는 AssertionError 메세지를 변경하는 방법이 있다.pytest_assertrepr_compare 함수에 AssertionError 출력 메세지를 작성하는 방법이다.pytest_assertrepr_compare 함수를 작성하여 AssertionError 메세지를 작성해보자.우선 테스트 코드와 동일한 디렉터리 레벨에 conftest.py를 생성하고 다음과 같이 작성한다.\n123456789# conftest.pyfrom test_foocompare import Foodef pytest_assertrepr_compare(op, left, right):    if isinstance(left, Foo) and isinstance(right, Foo) and op == \"==\":        return [            \"Comparing Foo instances:\",            \"   vals: &#123;&#125; != &#123;&#125;\".format(left.val, right.val),        ]\n\npytest_assertrepr_compare 함수에 대하여 설명하면 다음과 같다.AssertionError가 발생하였을 때, Assert문의 코드는 pytest_assertrepr_compare함수에 3개의 인자로 전달된다.예를 들면 assert foo(1) == foo(2) 와 같은 코드에서 AssertionError가 발생한다면 pytest_assertrepr_compare 함수 인자로 op = “==”, left = foo(1), right=foo(2)가 전달 된다.left가 Foo클래스의 인스턴스이고, right가 Foo클래스의 인스턴스이며, 연산자(op)가 “==”을 만족한다면 AssertionError 메세지를 “Comparing Foo instances:”, “ vals: {} != {}”.format(left.val, right.val) 형태로 출력하겠다는 의미이다.\n테스트를 위하여 test_foocompare.py를 생성하고 다음과 같이 작성한다.\n12345678910111213# test_foocompare.pyclass Foo:    def __init__(self, val):        self.val = val    def __eq__(self, other):        return self.val == other.valdef test_compare():    f1 = Foo(1)    f2 = Foo(2)    assert f1 == f2\n\nPyTest framework로 test_foocompare.py를 실행하면 다음과 같다.\n1234567891011121314151617181920$ pytest test_foocompare.py      ============================================================================================================ test session starts ============================================================================================================platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0rootdir: /Users/kevin/dev/pytest_tutorial/assertcollected 1 item                                                                                                                                                                                                                            test_foocompare.py F                                                                                                                                                                                                                  [100%]================================================================================================================= FAILURES ==================================================================================================================_______________________________________________________________________________________________________________ test_compare ________________________________________________________________________________________________________________    def test_compare():        f1 = Foo(1)        f2 = Foo(2)&gt;       assert f1 == f2E       assert Comparing Foo instances:E            vals: 1 != 2test_foocompare.py:12: AssertionError============================================================================================================= 1 failed in 0.04s =============================================================================================================\n\nAssertionError가 발생한 코드 아래에 테스트 실패 이유가 conftest.py에 작성한 메세지 형태(“Comparing Foo instances:”, “ vals: {} != {}”.format(left.val, right.val))로 출력된다는 것을 알 수 있다.\n다음은 참고한 문서이다.\n\nhttps://docs.pytest.org/en/latest/assert.html#defining-your-own-explanation-for-failed-assertions\n\nExceptionError 발생 테스트하기테스트할 대상중에는 ExceptionError를 발생시키는 케이스에서 정상적으로 ExceptionError가 발생하는지 테스트 해야 하는 경우가 있다.대표적으로 특정 함수가 특정한 경우에 Exception을 raise시키는 로직이 포함되어 있는 경우가 있다.만약 ExceptionError를 발생시키는 인자를 입력하여 ExceptionError가 발생하면 ExceptionError가 발생한 테스트 코드 아래의 코드들은 실행되지 않는다.ExceptioError 발생하는 코드를 try…catch…except로 감싸고 테스트하면 테스트 할 수 있다.PyTest framework의 pytest.raises 함수를 이용하면 편리하게 ExceptionError를 발생하는 상황을 테스트 할 수 있다.\nwith 문과 pytest.raise 함수를 사용하여 ExceptionError가 발생하는 케이스를 테스트한다.테스트를 위하여 test_exception_zero_division.py를 생성하고 다음과 같은 코드를 작성한다.\n123456789101112# test_exception_zero_division.pyimport pytestdef test_zero_division_1():    with pytest.raises(ZeroDivisionError):        1 / 0def test_zero_division_2():    with pytest.raises(ZeroDivisionError):        1 / 2\n\nPyTest framework로 테스트 코드를 실행하고 결과를 확인한다. \n123456789101112131415161718$ pytest test_exception_zero_division.py============================================================================================================ test session starts ============================================================================================================platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0rootdir: /Users/kevin/dev/pytest_tutorialcollected 2 items                                                                                                                                                                                                                           test_sample.py .F                                                                                                                                                                                                                     [100%]================================================================================================================= FAILURES ==================================================================================================================___________________________________________________________________________________________________________ test_zero_division_2 ____________________________________________________________________________________________________________    def test_zero_division_2():        with pytest.raises(ZeroDivisionError):&gt;           1 / 2E           Failed: DID NOT RAISE &lt;class 'ZeroDivisionError'&gt;test_sample.py:23: Failed======================================================================================================== 1 failed, 1 passed in 0.06s ========================================================================================================\n\ntest_zero_division_1 함수는 Divide Zero ExceptionError 발생하여 테스트 통과(.) 하였고, test_zero_division_2 함수는 Divide Zero ExceptionError 발생하지 않았고 테스트 통과 실패(F) 하였다.다음은 참고한 문서이다.\n\nhttps://docs.pytest.org/en/latest/assert.html#assertions-about-expected-exceptions\n\nPytest의 Fixture 설명Pytest framework에서는 입력 인자를 Fixture로 명명하여 관리할 수 있다.Fixture를 사용하면 테스트 코드가 간결해지고, 재활용할 수 있어 효율적인 테스트를 할 수 있다.Fixture는 데코레이터(@pytest.fixture)를 활용하여 사용한다. 해당 부분은 Pytest 공식사이트 Fixture를 참고해 기술했다.\nFixture를 이용해 함수를 변수처럼 사용하기test_square_10.py를 생성하고 다음과 같이 작성한다.\n1234567891011# test_square_10.pyimport pytest@pytest.fixturedef square_10():    return 10 * 10def test_square(square_10):    assert square_10 == 100    assert square_10 == 121\n\nfixture로 명명한 square_10은 변수처럼 사용할 수 있다.PyTest framework로 test_square_10.py를 실행하면 다음과 같다.\n1234567891011121314151617$ pytest test_square_10.py============================================================================================================ test session starts ============================================================================================================platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0rootdir: /Users/kevin/dev/pytest_tutorial/fixturecollected 1 item                                                                                                                                                                                                                            test_square_10.py F                                                                                                                                                                                                               [100%]================================================================================================================= FAILURES ==================================================================================================================________________________________________________________________________________________________________________ test_square ________________________________________________________________________________________________________________square_10 = 100    def test_square(square_10):        assert square_10 == 100&gt;       assert square_10 == 121E       assert 100 == 121\n\n테스트 결과를 확인하면 assert square_10 == 121 에서 테스트 통과 실패했다.square_10 함수를 실행하고 반환되는 값 100을 변수처럼 사용할 수 있다는 것을 알 수 있다.fixture는 conftest.py에 정의하여 다수의 테스트 코드에서 사용할 수 있다.다수의 테스트 코드에서 fixture를 사용해보자.\nconftest.py를 생성하고 다음과 같이 작성한다.\n123456# conftest.pyimport pytest@pytest.fixturedef square_10():    return 10 * 10\n\ntest_fixture_over.py, test_fixture_under.py를 생성하고 아래와 같이 작성한다.\n1234# test_fixture_over.pydef test_square_10_over(square_10):    assert square_10 == 100    assert square_10 == 121\n\n1234# test_fixture_under.pydef test_square_10_under(square_10):    assert square_10 == 100    assert square_10 == 81\n\ntest_square_10_over, test_square_10_under 함수는 sqaure_10를 인자로 받아서 assert 문을 수행한다.PyTest framework를 실행하고 결과를 확인한다.\n12345678910111213141516171819202122232425262728293031$ pytest *er.py============================================================================================================ test session starts ============================================================================================================platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0rootdir: /Users/kevin/dev/pytest_tutorial/fixture/over_undercollected 2 items                                                                                                                                                                                                                           test_fixture_over.py F                                                                                                                                                                                                                [ 50%]test_fixture_under.py F                                                                                                                                                                                                               [100%]================================================================================================================= FAILURES ==================================================================================================================____________________________________________________________________________________________________________ test_square_10_over ____________________________________________________________________________________________________________square_10 = 100    def test_square_10_over(square_10):        assert square_10 == 100&gt;       assert square_10 == 121E       assert 100 == 121test_fixture_over.py:3: AssertionError___________________________________________________________________________________________________________ test_square_10_under ____________________________________________________________________________________________________________square_10 = 100    def test_square_10_under(square_10):        assert square_10 == 100&gt;       assert square_10 == 81E       assert 100 == 81test_fixture_under.py:3: AssertionError============================================================================================================= 2 failed in 0.04s =============================================================================================================\nconftest.py에서 정의한 fixture square_10는 test_square_10_over 함수와 test_square_10_under 함수의 인자로 전달되었다.\nPytest fixture를 활용해 테스트코드 Setup, Teardown 만들기Pytest의 fixture는 다음과 같은 경우 주로 사용한다.\n\n테스트를 위한 데이터 셋업과 데이터 클리닝이 반복적, 독립적으로 사용 될 때\n\nFixture의 실제 사용 예는 다음과 같다.\n\n테스트를 위한 특정 파일과 디렉토리를 만들고 테스트 종료 시 해당 파일과 디렉토리를 삭제한다.\nDB를 연결하고 테스트 종료 시 DB 연결을 정상적으로 종료한다.\n\n학습을 위해 다음과 같은 사용사례를 가정해 진행한다.\n\n테스트를 위한 임시 디렉토리와 파일을 생성한다.\n임시 파일에 데이터를 수집되었다는 것을 의미한다\n데이터를 입력 완료 후 임시 디렉토리와 파일을 삭제한다.\n테스트를 종료한다.\n\n위의 사례를 직접 경험하기 위해 다음과 같이 코드를 작성한다.\n\ntest_fixture.py\n\n다음 명령어를 입력한다.\n1$ pytest pytest -v -s test_fixture.py\n\n실행 결과는 다음과 같다.\n1234567891011121314151617181920212223242526================================================================================================================================================ test session starts ==============================================================================================================================platform darwin -- Python 3.7.3, pytest-5.2.2, py-1.8.0, pluggy-0.13.0 -- /Users/st/test/pytest/.venv/bin/python3.7cachedir: .pytest_cacherootdir: /Users/st/test/pytestcollected 2 items                                                                                                                                                                                                                                                                                                    tests/test_module.py::test_file_write_yield make directory /Users/st/test/pytest/data/make file temp_data.txtdata write to filePASSEDdelete temp file  /Users/st/test/pytest/data/temp_data.txtdelete directory  /Users/st/test/pytest/data/teardown completetests/test_module.py::test_file_write_addfinalizer make directory /Users/st/test/pytest/data/make file temp_data.txtdata write to filePASSEDdelete temp file  /Users/st/test/pytest/data/temp_data.txtdelete directory  /Users/st/test/pytest/data/teardown complete================================================================================================================================================= 2 passed in 0.20s ===============================================================================================================================\n\n위의 결과를 통해 정상적으로 테스트를 위한 디렉토리, 파일 생성과 테스트 완료 후 해당 디렉토리와 파일을 정상적으로 삭제가 되었다는 것을 알 수 있다.\nPytest fixture의 파라미터 인자 설정으로 다수의 fixture 생성하기Pytest fixture의 params 인수를 활용하면 다수의 fixture 값을 생성하여 테스트 할 수 있다.다음은 다수의 fixture 값을 생성하는 테스트 코드이다.\n1234567891011# test_params.pyimport pytest@pytest.fixture(params=[1, 2, 3])def make_double_value(request):    return (request.param, request.param * 2)def test_double_value(make_double_value):    assert make_double_value[1] == (make_double_value[0] * 2 + 1)\n\nmake_double_value 함수로 생성되는 fixture에 대하여 설명하면 requst.param = 1, request.param = 2, request.param = 3인 케이스 별로 fixture를 생성한다.pytest framework로 test_params.py를 실행하면 다음과 같다.\n12345678910111213141516171819202122232425262728293031323334353637$ pytest test_params.py============================================================================================================ test session starts ============================================================================================================platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0rootdir: /Users/kevin/dev/pytest_tutorial/fixturecollected 3 items                                                                                                                                                                                                                           test_params.py FFF                                                                                                                                                                                                           [100%]================================================================================================================= FAILURES ==================================================================================================================___________________________________________________________________________________________________________ test_double_value[1] ____________________________________________________________________________________________________________make_double_value = (1, 2)    def test_double_value(make_double_value):&gt;       assert make_double_value[1] == (make_double_value[0] * 2 + 1)E       assert 2 == ((1 * 2) + 1)test_params.py:10: AssertionError___________________________________________________________________________________________________________ test_double_value[2] ____________________________________________________________________________________________________________make_double_value = (2, 4)    def test_double_value(make_double_value):&gt;       assert make_double_value[1] == (make_double_value[0] * 2 + 1)E       assert 4 == ((2 * 2) + 1)test_params.py:10: AssertionError___________________________________________________________________________________________________________ test_double_value[3] ____________________________________________________________________________________________________________make_double_value = (3, 6)    def test_double_value(make_double_value):&gt;       assert make_double_value[1] == (make_double_value[0] * 2 + 1)E       assert 6 == ((3 * 2) + 1)test_params.py:10: AssertionError============================================================================================================= 3 failed in 0.04s =============================================================================================================\n\n인자 [ 1, 2, 3]에 맞추어 make_double_value fixture가 [(1, 2), (2, 4), (3, 6)] 생성된 것을 알 수 있다.\n다음은 참고한 문서이다.\n\nhttps://docs.pytest.org/en/latest/parametrize.html#pytest-mark-parametrize-parametrizing-test-functions\n\n파라미터 인자를 직접 테스트 코드에 전달하기@pytest.mark.parametrize 데코레이터를 사용하면 테스트 코드에 파라미터 인자를 전달할 수 있다.리스트로 다수의 파라미터 인자를 전달하여 다수 케이스에 대한 테스트를 할 수도 있다.@pytest.mark.parametrize 정의한 파라미터 명을 정확하게 적어야 하며, 순서는 관계가 없다.아래의 test_expectation.py는 연산을 입력받아 연산하고 기대값과 비교하는 테스트 코드이다.\n1234567# test_expectation.pyimport pytest@pytest.mark.parametrize(\"test_input,expected\", [(\"3+5\", 8), (\"2+4\", 6), (\"6*9\", 42)])def test_eval(test_input, expected):    assert eval(test_input) == expected\n\n아래와 같이 총 3가지 케이스가 발생하여 테스트 코드가 실행될 것이다.\n\ntest_input = “3+5”, expected = 8\ntest_input = “2+4”, expected = 6\ntest_input = “6*9”, expected = 42 \n\nPytest framework를 실행하면 다음과 같다.\n123456789101112131415161718192021$ pytest test_expectation.py============================================================================================================ test session starts ============================================================================================================platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0rootdir: /Users/kevin/dev/pytest_tutorial/fixturecollected 3 items                                                                                                                                                                                                                           test_expectation.py ..F                                                                                                                                                                                                           [100%]================================================================================================================= FAILURES ==================================================================================================================_____________________________________________________________________________________________________________ test_eval[6*9-42] _____________________________________________________________________________________________________________test_input = '6*9', expected = 42    @pytest.mark.parametrize(\"test_input,expected\", [(\"3+5\", 8), (\"2+4\", 6), (\"6*9\", 42)])    def test_eval(test_input, expected):&gt;       assert eval(test_input) == expectedE       AssertionError: assert 54 == 42E        +  where 54 = eval('6*9')test_expectation.py:7: AssertionError======================================================================================================== 1 failed, 2 passed in 0.08s ========================================================================================================\n\n3가지 케이스가 실행되었다는 것을 알 수 있다.다음은 참고한 문서이다.\n\nhttps://docs.pytest.org/en/latest/parametrize.html#pytest-mark-parametrize-parametrizing-test-functions\n\n","dateCreated":"2019-10-29T07:38:28+09:00","dateModified":"2021-04-11T17:06:17+09:00","datePublished":"2019-10-29T07:38:28+09:00","description":"\n\nPytest framework에 관하여 학습한 내용을 정리한다.Pytest 공식 가이드 문서 내용 중 아래의 카테고리에 해당하는 내용을 정리했다.\n\nAsserting with the assert statement\npytest fixtures: explicit, modular, scalable\nParametrizing fixtures and test functions\n","headline":"pytest 프레임워크 기초 학습","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/","keywords":"pytest"}</script>
+    <meta name="description" content="Pytest framework에 관하여 학습한 내용을 정리한다.Pytest 공식 가이드 문서 내용 중 아래의 카테고리에 해당하는 내용을 정리했다.  Asserting with the assert statement pytest fixtures: explicit, modular, scalable Parametrizing fixtures and test fu">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="pytest 프레임워크 기초 학습">
+<meta property="og:url" content="http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/index.html">
+<meta property="og:site_name" content="Kevin의 블로그">
+<meta property="og:description" content="Pytest framework에 관하여 학습한 내용을 정리한다.Pytest 공식 가이드 문서 내용 중 아래의 카테고리에 해당하는 내용을 정리했다.  Asserting with the assert statement pytest fixtures: explicit, modular, scalable Parametrizing fixtures and test fu">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-10-28T22:38:28.000Z">
+<meta property="article:modified_time" content="2021-04-11T08:06:17.109Z">
+<meta property="article:author" content="Kevin">
+<meta property="article:tag" content="pytest">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://elaq0625.github.io/assets/images/beer.jpg"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="5">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a
+            class="header-title-link"
+            href="/"
+            aria-label=""
+        >
+            Kevin의 블로그
+        </a>
+    </div>
+    
+        
+            <a
+                class="header-right-picture "
+                href="#about"
+                aria-label="Open the link: /#about"
+            >
+        
+        
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="5">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a
+                    href="/#about"
+                    aria-label="Read more about the author"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                </a>
+                <h4 class="sidebar-profile-name">Kevin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/"
+                            title="홈"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">홈</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="카테고리"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="태그"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link open-algolia-search"
+                             href="/all-archives"
+                            
+                            title="아카이브"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/elaq0625/" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:elaq0625@gmail.com" target="_blank" rel="noopener" title="Mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="5"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            pytest 프레임워크 기초 학습
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2019-10-29T07:38:28+09:00">
+	
+		    Oct 29, 2019
+    	
+    </time>
+    
+        <span>in </span>
+        
+    <a class="category-link" href="/categories/%ED%85%8C%EC%8A%A4%ED%8A%B8-%EC%BD%94%EB%93%9C/">테스트 코드</a>
+
+
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#환경-구성"><span class="toc-text">환경 구성</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Pytest-실행-및-실행-결과-설명"><span class="toc-text">Pytest 실행 및 실행 결과 설명</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#테스트-코드-실행하는-방법"><span class="toc-text">테스트 코드 실행하는 방법</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#사용자가-지정한-규칙에-해당하는-테스트-코드-실행하는-방법"><span class="toc-text">사용자가 지정한 규칙에 해당하는 테스트 코드 실행하는 방법</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Assert-기능과-Pytest-실행-결과-설명"><span class="toc-text">Assert 기능과 Pytest 실행 결과 설명</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#AssertError-발생-시-출력되는-메시지"><span class="toc-text">AssertError 발생 시 출력되는 메시지</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#AssertError시-출력되는-메세지-추가하기"><span class="toc-text">AssertError시 출력되는 메세지 추가하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AssertError시-출력되는-메세지-변경하기"><span class="toc-text">AssertError시 출력되는 메세지 변경하기</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#ExceptionError-발생-테스트하기"><span class="toc-text">ExceptionError 발생 테스트하기</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Pytest의-Fixture-설명"><span class="toc-text">Pytest의 Fixture 설명</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fixture를-이용해-함수를-변수처럼-사용하기"><span class="toc-text">Fixture를 이용해 함수를 변수처럼 사용하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Pytest-fixture를-활용해-테스트코드-Setup-Teardown-만들기"><span class="toc-text">Pytest fixture를 활용해 테스트코드 Setup, Teardown 만들기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Pytest-fixture의-파라미터-인자-설정으로-다수의-fixture-생성하기"><span class="toc-text">Pytest fixture의 파라미터 인자 설정으로 다수의 fixture 생성하기</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#파라미터-인자를-직접-테스트-코드에-전달하기"><span class="toc-text">파라미터 인자를 직접 테스트 코드에 전달하기</span></a></li></ol>
+
+<p>Pytest framework에 관하여 학습한 내용을 정리한다.<br><a href="https://docs.pytest.org/en/latest/example/index.html" target="_blank" rel="noopener">Pytest 공식 가이드</a> 문서 내용 중 아래의 카테고리에 해당하는 내용을 정리했다.</p>
+<ul>
+<li><a href="https://docs.pytest.org/en/latest/assert.html#assert" target="_blank" rel="noopener">Asserting with the assert statement</a></li>
+<li><a href="https://docs.pytest.org/en/latest/fixture.html#fixtures" target="_blank" rel="noopener">pytest fixtures: explicit, modular, scalable</a></li>
+<li><a href="https://docs.pytest.org/en/latest/parametrize.html#parametrize" target="_blank" rel="noopener">Parametrizing fixtures and test functions</a></li>
+</ul>
+<a id="more"></a>
+<h1 id="테스트-환경"><a href="#테스트-환경" class="headerlink" title="테스트 환경"></a>테스트 환경</h1><p>학습 환경은 다음과 같다.</p>
+<ul>
+<li>Python 버전 : 3.7.4</li>
+<li>PyTest 버전 : 5.2.1</li>
+</ul>
+<h1 id="환경-구성"><a href="#환경-구성" class="headerlink" title="환경 구성"></a>환경 구성</h1><p>다음과 같이 가상환경을 구성하고 활성화한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ mkdir pytest_tutorial</span><br><span class="line">$ <span class="built_in">cd</span> pytest_tutorial</span><br><span class="line">$ virtualenv --python=python3.7 .venv</span><br><span class="line">$ <span class="built_in">source</span> .venv/bin/activate</span><br></pre></td></tr></table></figure>
+
+<p>다음 명령어를 입력해 Pytest 모듈을 설치한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ pip install pytest</span><br></pre></td></tr></table></figure>
+
+<h1 id="Pytest-실행-및-실행-결과-설명"><a href="#Pytest-실행-및-실행-결과-설명" class="headerlink" title="Pytest 실행 및 실행 결과 설명"></a>Pytest 실행 및 실행 결과 설명</h1><h2 id="테스트-코드-실행하는-방법"><a href="#테스트-코드-실행하는-방법" class="headerlink" title="테스트 코드 실행하는 방법"></a>테스트 코드 실행하는 방법</h2><p>다음과 같은 명령어를 입력 할 경우 실행된 디렉토리 안에서 Pytest가 정해진 규칙에 따라 Test 함수를 찾아 실행하게 된다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ pytest</span><br></pre></td></tr></table></figure>
+
+<p>Pytest가 어떤 규칙을 통해 Testcode를 찾아 실행하는 지에 대한 자세한 내용은 아래 문서를 통하여 확인할 수 있다.</p>
+<ul>
+<li><a href="https://docs.pytest.org/en/latest/goodpractices.html#test-discovery" target="_blank" rel="noopener">https://docs.pytest.org/en/latest/goodpractices.html#test-discovery</a></li>
+</ul>
+<h2 id="사용자가-지정한-규칙에-해당하는-테스트-코드-실행하는-방법"><a href="#사용자가-지정한-규칙에-해당하는-테스트-코드-실행하는-방법" class="headerlink" title="사용자가 지정한 규칙에 해당하는 테스트 코드 실행하는 방법"></a>사용자가 지정한 규칙에 해당하는 테스트 코드 실행하는 방법</h2><p>여러 개의 파일로 이루어진 테스트 코드를 테스트 하고자 한다면 와일드 카드(*)나 디렉터리 지정, 모듈 지정 등을 활용하면 된다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 와일드 카드 활용</span></span><br><span class="line">$ pytest test_*.py</span><br><span class="line"></span><br><span class="line"><span class="comment"># 모듈 지정</span></span><br><span class="line">$ pytest mymodule</span><br><span class="line"></span><br><span class="line"><span class="comment"># 현재 디렉터리 지정</span></span><br><span class="line">$ pytest ./</span><br></pre></td></tr></table></figure>
+
+<p>다음과 같이 2개의 테스트 코드 <em>test_sample_1.py</em>, <em>test_sample_2.py</em>를 작성한다.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_sample_1.py</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func</span><span class="params">(x)</span>:</span></span><br><span class="line">    <span class="keyword">return</span> x + <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_answer1</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">assert</span> func(<span class="number">3</span>) == <span class="number">5</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">test_sample_2.py</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func</span><span class="params">(x)</span>:</span></span><br><span class="line">    <span class="keyword">return</span> x * <span class="number">2</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_answer2</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">assert</span> func(<span class="number">3</span>) == <span class="number">6</span></span><br></pre></td></tr></table></figure>
+
+<p>2개의 테스트 코드(test_sample_1.py, test_sample_2.py)를 실행하기 위하여 test_sample_*로 지정하여 테스트를 실행한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ pytest test_sample_*</span><br><span class="line">==================================== <span class="built_in">test</span> session starts ====================================</span><br><span class="line">platform darwin -- Python 3.7.4, pytest-5.1.1, py-1.8.0, pluggy-0.12.0</span><br><span class="line">rootdir: /Users/kevin/dev/pytest_tutorial</span><br><span class="line">collected 2 items</span><br><span class="line"></span><br><span class="line">test_sample_1.py F                                                                    [ 50%]</span><br><span class="line">test_sample_2.py .                                                                    [100%]</span><br><span class="line"></span><br><span class="line">========================================= FAILURES ==========================================</span><br><span class="line">_______________________________________ test_answer1 ________________________________________</span><br><span class="line"></span><br><span class="line">    def test_answer1():</span><br><span class="line">&gt;       assert func(3) == 5</span><br><span class="line">E       assert 4 == 5</span><br><span class="line">E        +  <span class="built_in">where</span> 4 = func(3)</span><br><span class="line"></span><br><span class="line">test_sample_1.py:6: AssertionError</span><br><span class="line">================================ 1 failed, 1 passed <span class="keyword">in</span> 0.07s ================================</span><br></pre></td></tr></table></figure>
+
+<p>위의 결과를 통해 지정한 테스트 코드가 정상적으로 실행되었음을 알 수 있다.<br>참고한 문서는 다음과 같다.</p>
+<ul>
+<li><a href="https://docs.pytest.org/en/latest/goodpractices.html#good-integration-practices" target="_blank" rel="noopener">https://docs.pytest.org/en/latest/goodpractices.html#good-integration-practices</a></li>
+</ul>
+<h1 id="Assert-기능과-Pytest-실행-결과-설명"><a href="#Assert-기능과-Pytest-실행-결과-설명" class="headerlink" title="Assert 기능과 Pytest 실행 결과 설명"></a>Assert 기능과 Pytest 실행 결과 설명</h1><p>assert 기능을 테스트 하기 위해 다음과 같은 테스트 코드를 작성한다.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_sample.py</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func</span><span class="params">(x)</span>:</span></span><br><span class="line">    <span class="keyword">return</span> x + <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_answer</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">assert</span> func(<span class="number">3</span>) == <span class="number">5</span></span><br></pre></td></tr></table></figure>
+
+<p>Pytest framework는 이름의 prefix가 “test”인 함수만 인식하여 테스트 한다. 더 자세한 내용은 <a href="https://docs.pytest.org/en/latest/goodpractices.html#test-discovery" target="_blank" rel="noopener">Conventions for Python test discovery</a>에서 확인한다.<br>test_answer를 실행하여 func(3)의 값과 5를 같은지 비교하고 같지 않다면 AssertionError를 발생시킨다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">$ pytest test_sample.py</span><br><span class="line">==================================== <span class="built_in">test</span> session starts ====================================</span><br><span class="line">platform darwin -- Python 3.7.4, pytest-5.1.1, py-1.8.0, pluggy-0.12.0</span><br><span class="line">rootdir: /Users/kevin/dev/pytest_tutorial</span><br><span class="line">collected 1 item</span><br><span class="line"> </span><br><span class="line">test_sample.py F                                                                      [100%]</span><br><span class="line"> </span><br><span class="line">========================================= FAILURES ==========================================</span><br><span class="line">________________________________________ test_answer ________________________________________</span><br><span class="line"> </span><br><span class="line">    def test_answer():</span><br><span class="line">&gt;       assert func(3) == 5</span><br><span class="line">E       assert 4 == 5</span><br><span class="line">E        +  <span class="built_in">where</span> 4 = func(3)</span><br><span class="line"> </span><br><span class="line">test_sample.py:6: AssertionError</span><br><span class="line">===================================== 1 failed <span class="keyword">in</span> 0.04s =====================================</span><br></pre></td></tr></table></figure>
+
+<p>테스트 결과를 설명하면 다음과 같다.</p>
+<ul>
+<li>collected 2 item : 2개의 테스트 코드가 테스트 대상으로 확인되었다는 것을 의미한다.</li>
+<li>test_sample_1.py F : test_sample_1.py에 있는 테스트 함수가 테스트 실패(F) 했음을 의미한다.</li>
+<li>test_sample_2.py . : test_sample_2.py에 있는 테스트 함수가 테스트 통과(.) 했음을 의미한다.</li>
+<li>== …중략… == FAILURES == …중략… == : 테스트 통과 실패한 테스트 코드에 대하여 설명한다.</li>
+<li>def test_answer1()부터 Assertion Error까지의 내용: 실제 func(3) 결과값은 4이고 기대값은 5이기 때문에 AssertionError가 발생하였음을 의미한다.</li>
+</ul>
+<p>참고한 문서는 다음과 같다.</p>
+<ul>
+<li><a href="https://docs.pytest.org/en/latest/getting-started.html#create-your-first-test" target="_blank" rel="noopener">https://docs.pytest.org/en/latest/getting-started.html#create-your-first-test</a></li>
+</ul>
+<h1 id="AssertError-발생-시-출력되는-메시지"><a href="#AssertError-발생-시-출력되는-메시지" class="headerlink" title="AssertError 발생 시 출력되는 메시지"></a>AssertError 발생 시 출력되는 메시지</h1><h2 id="AssertError시-출력되는-메세지-추가하기"><a href="#AssertError시-출력되는-메세지-추가하기" class="headerlink" title="AssertError시 출력되는 메세지 추가하기"></a>AssertError시 출력되는 메세지 추가하기</h2><p>Pytest framework로 테스트 실패 시 출력되는 메세지를 추가할 수가 있다.</p>
+<p>다음과 같이 짝수이면 테스트 통과하는 테스트 코드를 작성한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_sample.py</span></span><br><span class="line">def test_even():</span><br><span class="line">    a = 11</span><br><span class="line">    assert a % 2 == 0, <span class="string">"value was odd, should be even"</span></span><br></pre></td></tr></table></figure>
+
+<p>실행 결과는 다음과 같다. </p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ pytest test_sample.py</span><br><span class="line">============================================================================================================ <span class="built_in">test</span> session starts ============================================================================================================</span><br><span class="line">platform darwin -- Python 3.7.4, pytest-5.1.1, py-1.8.0, pluggy-0.12.0</span><br><span class="line">rootdir: /Users/kevin/dev/pytest_tutorial</span><br><span class="line">collected 1 item                                                                                                                                                                                                                            </span><br><span class="line"></span><br><span class="line">test_sample.py F                                                                                                                                                                                                                      [100%]</span><br><span class="line"></span><br><span class="line">================================================================================================================= FAILURES ==================================================================================================================</span><br><span class="line">_________________________________________________________________________________________________________________ test_even _________________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">    def test_even():</span><br><span class="line">        a = 11</span><br><span class="line">&gt;       assert a % 2 == 0, <span class="string">"value was odd, should be even"</span></span><br><span class="line">E       AssertionError: value was odd, should be even</span><br><span class="line">E       assert (11 % 2) == 0</span><br><span class="line"></span><br><span class="line">test_sample.py:10: AssertionError</span><br><span class="line">============================================================================================================= 1 failed <span class="keyword">in</span> 0.05s =============================================================================================================</span><br></pre></td></tr></table></figure>
+
+<p>테스트 결과에서 에러 메시지 중 “value was odd, should be even”가 출력된 것을 통해 추가한 오류 메시지가 정상 출력된 것을 확인할 수 있다.<br>다음은 참고한 문서이다.</p>
+<ul>
+<li><a href="https://docs.pytest.org/en/latest/assert.html#asserting-with-the-assert-statement" target="_blank" rel="noopener">https://docs.pytest.org/en/latest/assert.html#asserting-with-the-assert-statement</a></li>
+</ul>
+<h2 id="AssertError시-출력되는-메세지-변경하기"><a href="#AssertError시-출력되는-메세지-변경하기" class="headerlink" title="AssertError시 출력되는 메세지 변경하기"></a>AssertError시 출력되는 메세지 변경하기</h2><p>PyTest는 테스트 통과 실패시 아래 예시와 같은 형태로 테스트 통과 실패 이유를 알려준다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">========================================= FAILURES ==========================================</span><br><span class="line">________________________________________ test_answer ________________________________________</span><br><span class="line"> </span><br><span class="line">    def test_answer():</span><br><span class="line">&gt;       assert func(3) == 5</span><br><span class="line">E       assert 4 == 5</span><br><span class="line">E        +  <span class="built_in">where</span> 4 = func(3)</span><br><span class="line"> </span><br><span class="line">test_sample.py:6: AssertionError</span><br><span class="line">===================================== 1 failed <span class="keyword">in</span> 0.04s =====================================</span><br></pre></td></tr></table></figure>
+
+<p>간단한 테스트는 테스트 통과 실패 이유를 쉽게 찾을 수 있지만, 테스트 코드가 복잡해지거나 테스트 수가 많아진다면 테스트 통과 실패 이유를 확인하는 데에 많은 시간이 소모된다.<br>따라서 테스트 통과 실패 이유를 직관적으로 출력할 수 있다면 테스트 통과 실패 이유를 확인하는 데에 적은 시간을 소모할 수 있을 것이라 판단된다.</p>
+<p>PyTest에서는 AssertionError 메세지를 변경하는 방법이 있다.<br>pytest_assertrepr_compare 함수에 AssertionError 출력 메세지를 작성하는 방법이다.<br>pytest_assertrepr_compare 함수를 작성하여 AssertionError 메세지를 작성해보자.<br>우선 테스트 코드와 동일한 디렉터리 레벨에 <em>conftest.py</em>를 생성하고 다음과 같이 작성한다.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># conftest.py</span></span><br><span class="line"><span class="keyword">from</span> test_foocompare <span class="keyword">import</span> Foo</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">pytest_assertrepr_compare</span><span class="params">(op, left, right)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> isinstance(left, Foo) <span class="keyword">and</span> isinstance(right, Foo) <span class="keyword">and</span> op == <span class="string">"=="</span>:</span><br><span class="line">        <span class="keyword">return</span> [</span><br><span class="line">            <span class="string">"Comparing Foo instances:"</span>,</span><br><span class="line">            <span class="string">"   vals: &#123;&#125; != &#123;&#125;"</span>.format(left.val, right.val),</span><br><span class="line">        ]</span><br></pre></td></tr></table></figure>
+
+<p>pytest_assertrepr_compare 함수에 대하여 설명하면 다음과 같다.<br>AssertionError가 발생하였을 때, Assert문의 코드는 pytest_assertrepr_compare함수에 3개의 인자로 전달된다.<br>예를 들면 assert foo(1) == foo(2) 와 같은 코드에서 AssertionError가 발생한다면 pytest_assertrepr_compare 함수 인자로 op = “==”, left = foo(1), right=foo(2)가 전달 된다.<br>left가 Foo클래스의 인스턴스이고, right가 Foo클래스의 인스턴스이며, 연산자(op)가 “==”을 만족한다면 AssertionError 메세지를 “Comparing Foo instances:”, “ vals: {} != {}”.format(left.val, right.val) 형태로 출력하겠다는 의미이다.</p>
+<p>테스트를 위하여 <em>test_foocompare.py</em>를 생성하고 다음과 같이 작성한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_foocompare.py</span></span><br><span class="line">class Foo:</span><br><span class="line">    def __init__(self, val):</span><br><span class="line">        self.val = val</span><br><span class="line"></span><br><span class="line">    def __eq__(self, other):</span><br><span class="line">        <span class="built_in">return</span> self.val == other.val</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">def test_compare():</span><br><span class="line">    f1 = Foo(1)</span><br><span class="line">    f2 = Foo(2)</span><br><span class="line">    assert f1 == f2</span><br></pre></td></tr></table></figure>
+
+<p>PyTest framework로 test_foocompare.py를 실행하면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">$ pytest test_foocompare.py      </span><br><span class="line">============================================================================================================ <span class="built_in">test</span> session starts ============================================================================================================</span><br><span class="line">platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0</span><br><span class="line">rootdir: /Users/kevin/dev/pytest_tutorial/assert</span><br><span class="line">collected 1 item                                                                                                                                                                                                                            </span><br><span class="line"></span><br><span class="line">test_foocompare.py F                                                                                                                                                                                                                  [100%]</span><br><span class="line"></span><br><span class="line">================================================================================================================= FAILURES ==================================================================================================================</span><br><span class="line">_______________________________________________________________________________________________________________ test_compare ________________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">    def test_compare():</span><br><span class="line">        f1 = Foo(1)</span><br><span class="line">        f2 = Foo(2)</span><br><span class="line">&gt;       assert f1 == f2</span><br><span class="line">E       assert Comparing Foo instances:</span><br><span class="line">E            vals: 1 != 2</span><br><span class="line"></span><br><span class="line">test_foocompare.py:12: AssertionError</span><br><span class="line">============================================================================================================= 1 failed <span class="keyword">in</span> 0.04s =============================================================================================================</span><br></pre></td></tr></table></figure>
+
+<p>AssertionError가 발생한 코드 아래에 테스트 실패 이유가 conftest.py에 작성한 메세지 형태(“Comparing Foo instances:”, “ vals: {} != {}”.format(left.val, right.val))로 출력된다는 것을 알 수 있다.</p>
+<p>다음은 참고한 문서이다.</p>
+<ul>
+<li><a href="https://docs.pytest.org/en/latest/assert.html#defining-your-own-explanation-for-failed-assertions" target="_blank" rel="noopener">https://docs.pytest.org/en/latest/assert.html#defining-your-own-explanation-for-failed-assertions</a></li>
+</ul>
+<h1 id="ExceptionError-발생-테스트하기"><a href="#ExceptionError-발생-테스트하기" class="headerlink" title="ExceptionError 발생 테스트하기"></a>ExceptionError 발생 테스트하기</h1><p>테스트할 대상중에는 ExceptionError를 발생시키는 케이스에서 정상적으로 ExceptionError가 발생하는지 테스트 해야 하는 경우가 있다.<br>대표적으로 특정 함수가 특정한 경우에 Exception을 raise시키는 로직이 포함되어 있는 경우가 있다.<br>만약 ExceptionError를 발생시키는 인자를 입력하여 ExceptionError가 발생하면 ExceptionError가 발생한 테스트 코드 아래의 코드들은 실행되지 않는다.<br>ExceptioError 발생하는 코드를 try…catch…except로 감싸고 테스트하면 테스트 할 수 있다.<br>PyTest framework의 pytest.raises 함수를 이용하면 편리하게 ExceptionError를 발생하는 상황을 테스트 할 수 있다.</p>
+<p>with 문과 pytest.raise 함수를 사용하여 ExceptionError가 발생하는 케이스를 테스트한다.<br>테스트를 위하여 <em>test_exception_zero_division.py</em>를 생성하고 다음과 같은 코드를 작성한다.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_exception_zero_division.py</span></span><br><span class="line"><span class="keyword">import</span> pytest</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_zero_division_1</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">with</span> pytest.raises(ZeroDivisionError):</span><br><span class="line">        <span class="number">1</span> / <span class="number">0</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_zero_division_2</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">with</span> pytest.raises(ZeroDivisionError):</span><br><span class="line">        <span class="number">1</span> / <span class="number">2</span></span><br></pre></td></tr></table></figure>
+
+<p>PyTest framework로 테스트 코드를 실행하고 결과를 확인한다. </p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">$ pytest test_exception_zero_division.py</span><br><span class="line">============================================================================================================ <span class="built_in">test</span> session starts ============================================================================================================</span><br><span class="line">platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0</span><br><span class="line">rootdir: /Users/kevin/dev/pytest_tutorial</span><br><span class="line">collected 2 items                                                                                                                                                                                                                           </span><br><span class="line"></span><br><span class="line">test_sample.py .F                                                                                                                                                                                                                     [100%]</span><br><span class="line"></span><br><span class="line">================================================================================================================= FAILURES ==================================================================================================================</span><br><span class="line">___________________________________________________________________________________________________________ test_zero_division_2 ____________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">    def test_zero_division_2():</span><br><span class="line">        with pytest.raises(ZeroDivisionError):</span><br><span class="line">&gt;           1 / 2</span><br><span class="line">E           Failed: DID NOT RAISE &lt;class <span class="string">'ZeroDivisionError'</span>&gt;</span><br><span class="line"></span><br><span class="line">test_sample.py:23: Failed</span><br><span class="line">======================================================================================================== 1 failed, 1 passed <span class="keyword">in</span> 0.06s ========================================================================================================</span><br></pre></td></tr></table></figure>
+
+<p>test_zero_division_1 함수는 Divide Zero ExceptionError 발생하여 테스트 통과(.) 하였고, test_zero_division_2 함수는 Divide Zero ExceptionError 발생하지 않았고 테스트 통과 실패(F) 하였다.<br>다음은 참고한 문서이다.</p>
+<ul>
+<li><a href="https://docs.pytest.org/en/latest/assert.html#assertions-about-expected-exceptions" target="_blank" rel="noopener">https://docs.pytest.org/en/latest/assert.html#assertions-about-expected-exceptions</a></li>
+</ul>
+<h1 id="Pytest의-Fixture-설명"><a href="#Pytest의-Fixture-설명" class="headerlink" title="Pytest의 Fixture 설명"></a>Pytest의 Fixture 설명</h1><p>Pytest framework에서는 입력 인자를 Fixture로 명명하여 관리할 수 있다.<br>Fixture를 사용하면 테스트 코드가 간결해지고, 재활용할 수 있어 효율적인 테스트를 할 수 있다.<br>Fixture는 데코레이터(@pytest.fixture)를 활용하여 사용한다. 해당 부분은 <a href="https://docs.pytest.org/en/latest/fixture.html#fixtures-as-function-arguments" target="_blank" rel="noopener">Pytest 공식사이트 Fixture</a>를 참고해 기술했다.</p>
+<h2 id="Fixture를-이용해-함수를-변수처럼-사용하기"><a href="#Fixture를-이용해-함수를-변수처럼-사용하기" class="headerlink" title="Fixture를 이용해 함수를 변수처럼 사용하기"></a>Fixture를 이용해 함수를 변수처럼 사용하기</h2><p>test_square_10.py를 생성하고 다음과 같이 작성한다.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_square_10.py</span></span><br><span class="line"><span class="keyword">import</span> pytest</span><br><span class="line"></span><br><span class="line"><span class="meta">@pytest.fixture</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">square_10</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">return</span> <span class="number">10</span> * <span class="number">10</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_square</span><span class="params">(square_10)</span>:</span></span><br><span class="line">    <span class="keyword">assert</span> square_10 == <span class="number">100</span></span><br><span class="line">    <span class="keyword">assert</span> square_10 == <span class="number">121</span></span><br></pre></td></tr></table></figure>
+
+<p>fixture로 명명한 square_10은 변수처럼 사용할 수 있다.<br>PyTest framework로 test_square_10.py를 실행하면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ pytest test_square_10.py</span><br><span class="line">============================================================================================================ <span class="built_in">test</span> session starts ============================================================================================================</span><br><span class="line">platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0</span><br><span class="line">rootdir: /Users/kevin/dev/pytest_tutorial/fixture</span><br><span class="line">collected 1 item                                                                                                                                                                                                                            </span><br><span class="line"></span><br><span class="line">test_square_10.py F                                                                                                                                                                                                               [100%]</span><br><span class="line"></span><br><span class="line">================================================================================================================= FAILURES ==================================================================================================================</span><br><span class="line">________________________________________________________________________________________________________________ test_square ________________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">square_10 = 100</span><br><span class="line"></span><br><span class="line">    def test_square(square_10):</span><br><span class="line">        assert square_10 == 100</span><br><span class="line">&gt;       assert square_10 == 121</span><br><span class="line">E       assert 100 == 121</span><br></pre></td></tr></table></figure>
+
+<p>테스트 결과를 확인하면 assert square_10 == 121 에서 테스트 통과 실패했다.<br>square_10 함수를 실행하고 반환되는 값 100을 변수처럼 사용할 수 있다는 것을 알 수 있다.<br>fixture는 conftest.py에 정의하여 다수의 테스트 코드에서 사용할 수 있다.<br>다수의 테스트 코드에서 fixture를 사용해보자.</p>
+<p>conftest.py를 생성하고 다음과 같이 작성한다.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># conftest.py</span></span><br><span class="line"><span class="keyword">import</span> pytest</span><br><span class="line"></span><br><span class="line"><span class="meta">@pytest.fixture</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">square_10</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">return</span> <span class="number">10</span> * <span class="number">10</span></span><br></pre></td></tr></table></figure>
+
+<p>test_fixture_over.py, test_fixture_under.py를 생성하고 아래와 같이 작성한다.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_fixture_over.py</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_square_10_over</span><span class="params">(square_10)</span>:</span></span><br><span class="line">    <span class="keyword">assert</span> square_10 == <span class="number">100</span></span><br><span class="line">    <span class="keyword">assert</span> square_10 == <span class="number">121</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_fixture_under.py</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_square_10_under</span><span class="params">(square_10)</span>:</span></span><br><span class="line">    <span class="keyword">assert</span> square_10 == <span class="number">100</span></span><br><span class="line">    <span class="keyword">assert</span> square_10 == <span class="number">81</span></span><br></pre></td></tr></table></figure>
+
+<p>test_square_10_over, test_square_10_under 함수는 sqaure_10를 인자로 받아서 assert 문을 수행한다.<br>PyTest framework를 실행하고 결과를 확인한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">$ pytest *er.py</span><br><span class="line">============================================================================================================ <span class="built_in">test</span> session starts ============================================================================================================</span><br><span class="line">platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0</span><br><span class="line">rootdir: /Users/kevin/dev/pytest_tutorial/fixture/over_under</span><br><span class="line">collected 2 items                                                                                                                                                                                                                           </span><br><span class="line"></span><br><span class="line">test_fixture_over.py F                                                                                                                                                                                                                [ 50%]</span><br><span class="line">test_fixture_under.py F                                                                                                                                                                                                               [100%]</span><br><span class="line"></span><br><span class="line">================================================================================================================= FAILURES ==================================================================================================================</span><br><span class="line">____________________________________________________________________________________________________________ test_square_10_over ____________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">square_10 = 100</span><br><span class="line"></span><br><span class="line">    def test_square_10_over(square_10):</span><br><span class="line">        assert square_10 == 100</span><br><span class="line">&gt;       assert square_10 == 121</span><br><span class="line">E       assert 100 == 121</span><br><span class="line"></span><br><span class="line">test_fixture_over.py:3: AssertionError</span><br><span class="line">___________________________________________________________________________________________________________ test_square_10_under ____________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">square_10 = 100</span><br><span class="line"></span><br><span class="line">    def test_square_10_under(square_10):</span><br><span class="line">        assert square_10 == 100</span><br><span class="line">&gt;       assert square_10 == 81</span><br><span class="line">E       assert 100 == 81</span><br><span class="line"></span><br><span class="line">test_fixture_under.py:3: AssertionError</span><br><span class="line">============================================================================================================= 2 failed <span class="keyword">in</span> 0.04s =============================================================================================================</span><br></pre></td></tr></table></figure>
+<p>conftest.py에서 정의한 fixture square_10는 test_square_10_over 함수와 test_square_10_under 함수의 인자로 전달되었다.</p>
+<h2 id="Pytest-fixture를-활용해-테스트코드-Setup-Teardown-만들기"><a href="#Pytest-fixture를-활용해-테스트코드-Setup-Teardown-만들기" class="headerlink" title="Pytest fixture를 활용해 테스트코드 Setup, Teardown 만들기"></a>Pytest fixture를 활용해 테스트코드 Setup, Teardown 만들기</h2><p>Pytest의 fixture는 다음과 같은 경우 주로 사용한다.</p>
+<ul>
+<li>테스트를 위한 데이터 셋업과 데이터 클리닝이 반복적, 독립적으로 사용 될 때</li>
+</ul>
+<p>Fixture의 실제 사용 예는 다음과 같다.</p>
+<ul>
+<li>테스트를 위한 특정 파일과 디렉토리를 만들고 테스트 종료 시 해당 파일과 디렉토리를 삭제한다.</li>
+<li>DB를 연결하고 테스트 종료 시 DB 연결을 정상적으로 종료한다.</li>
+</ul>
+<p>학습을 위해 다음과 같은 사용사례를 가정해 진행한다.</p>
+<ol>
+<li>테스트를 위한 임시 디렉토리와 파일을 생성한다.</li>
+<li>임시 파일에 데이터를 수집되었다는 것을 의미한다</li>
+<li>데이터를 입력 완료 후 임시 디렉토리와 파일을 삭제한다.</li>
+<li>테스트를 종료한다.</li>
+</ol>
+<p>위의 사례를 직접 경험하기 위해 다음과 같이 코드를 작성한다.</p>
+<ul>
+<li><a href="/post_attachment/pytest-framework-basic-studying/test_fixture.py" target="_blank">test_fixture.py</a></li>
+</ul>
+<p>다음 명령어를 입력한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ pytest pytest -v -s test_fixture.py</span><br></pre></td></tr></table></figure>
+
+<p>실행 결과는 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">================================================================================================================================================ <span class="built_in">test</span> session starts ==============================================================================================================================</span><br><span class="line">platform darwin -- Python 3.7.3, pytest-5.2.2, py-1.8.0, pluggy-0.13.0 -- /Users/st/<span class="built_in">test</span>/pytest/.venv/bin/python3.7</span><br><span class="line">cachedir: .pytest_cache</span><br><span class="line">rootdir: /Users/st/<span class="built_in">test</span>/pytest</span><br><span class="line">collected 2 items                                                                                                                                                                                                                                                                                                    </span><br><span class="line"></span><br><span class="line">tests/test_module.py::test_file_write_yield </span><br><span class="line">make directory /Users/st/<span class="built_in">test</span>/pytest/data/</span><br><span class="line">make file temp_data.txt</span><br><span class="line">data write to file</span><br><span class="line">PASSED</span><br><span class="line">delete temp file  /Users/st/<span class="built_in">test</span>/pytest/data/temp_data.txt</span><br><span class="line">delete directory  /Users/st/<span class="built_in">test</span>/pytest/data/</span><br><span class="line">teardown complete</span><br><span class="line"></span><br><span class="line">tests/test_module.py::test_file_write_addfinalizer </span><br><span class="line">make directory /Users/st/<span class="built_in">test</span>/pytest/data/</span><br><span class="line">make file temp_data.txt</span><br><span class="line">data write to file</span><br><span class="line">PASSED</span><br><span class="line">delete temp file  /Users/st/<span class="built_in">test</span>/pytest/data/temp_data.txt</span><br><span class="line">delete directory  /Users/st/<span class="built_in">test</span>/pytest/data/</span><br><span class="line">teardown complete</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">================================================================================================================================================= 2 passed <span class="keyword">in</span> 0.20s ===============================================================================================================================</span><br></pre></td></tr></table></figure>
+
+<p>위의 결과를 통해 정상적으로 테스트를 위한 디렉토리, 파일 생성과 테스트 완료 후 해당 디렉토리와 파일을 정상적으로 삭제가 되었다는 것을 알 수 있다.</p>
+<h2 id="Pytest-fixture의-파라미터-인자-설정으로-다수의-fixture-생성하기"><a href="#Pytest-fixture의-파라미터-인자-설정으로-다수의-fixture-생성하기" class="headerlink" title="Pytest fixture의 파라미터 인자 설정으로 다수의 fixture 생성하기"></a>Pytest fixture의 파라미터 인자 설정으로 다수의 fixture 생성하기</h2><p>Pytest fixture의 params 인수를 활용하면 다수의 fixture 값을 생성하여 테스트 할 수 있다.<br>다음은 다수의 fixture 값을 생성하는 테스트 코드이다.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_params.py</span></span><br><span class="line"><span class="keyword">import</span> pytest</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@pytest.fixture(params=[1, 2, 3])</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">make_double_value</span><span class="params">(request)</span>:</span></span><br><span class="line">    <span class="keyword">return</span> (request.param, request.param * <span class="number">2</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_double_value</span><span class="params">(make_double_value)</span>:</span></span><br><span class="line">    <span class="keyword">assert</span> make_double_value[<span class="number">1</span>] == (make_double_value[<span class="number">0</span>] * <span class="number">2</span> + <span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
+<p>make_double_value 함수로 생성되는 fixture에 대하여 설명하면 requst.param = 1, request.param = 2, request.param = 3인 케이스 별로 fixture를 생성한다.<br>pytest framework로 test_params.py를 실행하면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">$ pytest test_params.py</span><br><span class="line">============================================================================================================ <span class="built_in">test</span> session starts ============================================================================================================</span><br><span class="line">platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0</span><br><span class="line">rootdir: /Users/kevin/dev/pytest_tutorial/fixture</span><br><span class="line">collected 3 items                                                                                                                                                                                                                           </span><br><span class="line"></span><br><span class="line">test_params.py FFF                                                                                                                                                                                                           [100%]</span><br><span class="line"></span><br><span class="line">================================================================================================================= FAILURES ==================================================================================================================</span><br><span class="line">___________________________________________________________________________________________________________ test_double_value[1] ____________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">make_double_value = (1, 2)</span><br><span class="line"></span><br><span class="line">    def test_double_value(make_double_value):</span><br><span class="line">&gt;       assert make_double_value[1] == (make_double_value[0] * 2 + 1)</span><br><span class="line">E       assert 2 == ((1 * 2) + 1)</span><br><span class="line"></span><br><span class="line">test_params.py:10: AssertionError</span><br><span class="line">___________________________________________________________________________________________________________ test_double_value[2] ____________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">make_double_value = (2, 4)</span><br><span class="line"></span><br><span class="line">    def test_double_value(make_double_value):</span><br><span class="line">&gt;       assert make_double_value[1] == (make_double_value[0] * 2 + 1)</span><br><span class="line">E       assert 4 == ((2 * 2) + 1)</span><br><span class="line"></span><br><span class="line">test_params.py:10: AssertionError</span><br><span class="line">___________________________________________________________________________________________________________ test_double_value[3] ____________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">make_double_value = (3, 6)</span><br><span class="line"></span><br><span class="line">    def test_double_value(make_double_value):</span><br><span class="line">&gt;       assert make_double_value[1] == (make_double_value[0] * 2 + 1)</span><br><span class="line">E       assert 6 == ((3 * 2) + 1)</span><br><span class="line"></span><br><span class="line">test_params.py:10: AssertionError</span><br><span class="line">============================================================================================================= 3 failed <span class="keyword">in</span> 0.04s =============================================================================================================</span><br></pre></td></tr></table></figure>
+
+<p>인자 [ 1, 2, 3]에 맞추어 make_double_value fixture가 [(1, 2), (2, 4), (3, 6)] 생성된 것을 알 수 있다.</p>
+<p>다음은 참고한 문서이다.</p>
+<ul>
+<li><a href="https://docs.pytest.org/en/latest/parametrize.html#pytest-mark-parametrize-parametrizing-test-functions" target="_blank" rel="noopener">https://docs.pytest.org/en/latest/parametrize.html#pytest-mark-parametrize-parametrizing-test-functions</a></li>
+</ul>
+<h1 id="파라미터-인자를-직접-테스트-코드에-전달하기"><a href="#파라미터-인자를-직접-테스트-코드에-전달하기" class="headerlink" title="파라미터 인자를 직접 테스트 코드에 전달하기"></a>파라미터 인자를 직접 테스트 코드에 전달하기</h1><p>@pytest.mark.parametrize 데코레이터를 사용하면 테스트 코드에 파라미터 인자를 전달할 수 있다.<br>리스트로 다수의 파라미터 인자를 전달하여 다수 케이스에 대한 테스트를 할 수도 있다.<br>@pytest.mark.parametrize 정의한 파라미터 명을 정확하게 적어야 하며, 순서는 관계가 없다.<br>아래의 test_expectation.py는 연산을 입력받아 연산하고 기대값과 비교하는 테스트 코드이다.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># test_expectation.py</span></span><br><span class="line"><span class="keyword">import</span> pytest</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@pytest.mark.parametrize("test_input,expected", [("3+5", 8), ("2+4", 6), ("6*9", 42)])</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_eval</span><span class="params">(test_input, expected)</span>:</span></span><br><span class="line">    <span class="keyword">assert</span> eval(test_input) == expected</span><br></pre></td></tr></table></figure>
+
+<p>아래와 같이 총 3가지 케이스가 발생하여 테스트 코드가 실행될 것이다.</p>
+<ul>
+<li>test_input = “3+5”, expected = 8</li>
+<li>test_input = “2+4”, expected = 6</li>
+<li>test_input = “6*9”, expected = 42 </li>
+</ul>
+<p>Pytest framework를 실행하면 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">$ pytest test_expectation.py</span><br><span class="line">============================================================================================================ <span class="built_in">test</span> session starts ============================================================================================================</span><br><span class="line">platform darwin -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0</span><br><span class="line">rootdir: /Users/kevin/dev/pytest_tutorial/fixture</span><br><span class="line">collected 3 items                                                                                                                                                                                                                           </span><br><span class="line"></span><br><span class="line">test_expectation.py ..F                                                                                                                                                                                                           [100%]</span><br><span class="line"></span><br><span class="line">================================================================================================================= FAILURES ==================================================================================================================</span><br><span class="line">_____________________________________________________________________________________________________________ test_eval[6*9-42] _____________________________________________________________________________________________________________</span><br><span class="line"></span><br><span class="line">test_input = <span class="string">'6*9'</span>, expected = 42</span><br><span class="line"></span><br><span class="line">    @pytest.mark.parametrize(<span class="string">"test_input,expected"</span>, [(<span class="string">"3+5"</span>, 8), (<span class="string">"2+4"</span>, 6), (<span class="string">"6*9"</span>, 42)])</span><br><span class="line">    def test_eval(test_input, expected):</span><br><span class="line">&gt;       assert <span class="built_in">eval</span>(test_input) == expected</span><br><span class="line">E       AssertionError: assert 54 == 42</span><br><span class="line">E        +  <span class="built_in">where</span> 54 = <span class="built_in">eval</span>(<span class="string">'6*9'</span>)</span><br><span class="line"></span><br><span class="line">test_expectation.py:7: AssertionError</span><br><span class="line">======================================================================================================== 1 failed, 2 passed <span class="keyword">in</span> 0.08s ========================================================================================================</span><br></pre></td></tr></table></figure>
+
+<p>3가지 케이스가 실행되었다는 것을 알 수 있다.<br>다음은 참고한 문서이다.</p>
+<ul>
+<li><a href="https://docs.pytest.org/en/latest/parametrize.html#pytest-mark-parametrize-parametrizing-test-functions" target="_blank" rel="noopener">https://docs.pytest.org/en/latest/parametrize.html#pytest-mark-parametrize-parametrizing-test-functions</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                
+    <a class="tag tag--primary tag--small t-link" href="/tags/pytest/" rel="tag">pytest</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/11/08/elasticsearch-recovery-about-index/"
+                    data-tooltip="Amazon Elasticsearch 인덱스 복구"
+                    aria-label="PREVIOUS: Amazon Elasticsearch 인덱스 복구"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/10/16/kinesis-data-stream-shard-per-condition/"
+                    data-tooltip="Kinesis Data Stream - 샤드당 제약 조건 확인"
+                    aria-label="NEXT: Kinesis Data Stream - 샤드당 제약 조건 확인"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript" target="_blank" rel="noopener">comments powered by Disqus.</a></noscript>
+</div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2021 Kevin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="5">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/11/08/elasticsearch-recovery-about-index/"
+                    data-tooltip="Amazon Elasticsearch 인덱스 복구"
+                    aria-label="PREVIOUS: Amazon Elasticsearch 인덱스 복구"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2019/10/16/kinesis-data-stream-shard-per-condition/"
+                    data-tooltip="Kinesis Data Stream - 샤드당 제약 조건 확인"
+                    aria-label="NEXT: Kinesis Data Stream - 샤드당 제약 조건 확인"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="5">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"
+                        aria-label="Share on Facebook"
+                    >
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"
+                        aria-label="Share on Twitter"
+                    >
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/"
+                        aria-label="Share on Google+"
+                    >
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+            <h4 id="about-card-name">Kevin</h4>
+        
+            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>Developer, DE</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                서울 / 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/curtain.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+        <script>
+          var disqus_config = function() {
+            this.page.url = 'http://elaq0625.github.io/2019/10/29/pytest-framework-basic-studying/';
+              
+            this.page.identifier = '2019/10/29/pytest-framework-basic-studying/';
+              
+          };
+          (function() {
+            var d = document, s = d.createElement('script');
+            var disqus_shortname = 'elaq0625';
+            s.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+          })();
+        </script>
+    
+
+
+
+
+    </body>
+</html>

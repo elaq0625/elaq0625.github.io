@@ -1,0 +1,704 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Kevin의 블로그">
+    <title>AWS Chalice 활용 실습 - Elasticsearh 이벤트 데이터 집계하여 시간 단위 리포트 자동화 구현 - Kevin의 블로그</title>
+    <meta name="author" content="Kevin">
+    
+    
+        <link rel="icon" href="http://elaq0625.github.io/assets/images/beer_favaicon.png">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n\n학습 차원에서 다음과 같은 동작을 하는 자동화를 구현하고 구현 과정을 문서로 정리한다.\n\n매시간마다 6시간 전까지의 이벤트 데이터 개수를 시간 단위로 집계한다.\n집계된 내용은 Slack Bot으로 매시간마다 보고 한다.\n\n\n\n\n아래의 구현 과정은 Elasticsearch에 event_data_index 인덱스에 이벤트 데이터가 저장된 것을 가정하고 진행한다.\n\n테스트 환경\nOS : macOS Catalina v10.15.2\nPython : v3.6.5\nChalice : chalice 1.9.1\n\n테스트 환경 구성가상환경 구성 및 Chalice 프로젝트 생성테스트 프로젝트 디렉터리를 구성하고 가상화 환경을 구성한다.Chalice 프로젝트를 생성하고 필요한 라이브러리를 구성한다.프로젝트 디렉터리는 다음과 같다.\n1234hourly_report_test└── hourly_report_test_chalice    ├── app.py    └── requirements.txt\n\n테스트 프로젝트 디렉터리(hourly_report_test)가 생성되었다고 가정하고 다음과 같은 명령으로 가상화 환경을 구성하고 활성화 한다.\n12$ virtualenv --python=python3.6 .venv$ source .venv/bin/activate\n\n다음과 같은 명령으로 Chalice를 설치하고 새 프로젝트를 생성한다.\n12$ pip install chalice$ chalice new-project hourly_report_test_chalice\n\n나머지 파이썬 패키지를 설치하기 위하여 ./hourly_report_test_chalice/requirements.txt를 다음과 같은 내용으로 수정한다.\n123456789101112131415161718192021222324attrs==19.3.0boto3==1.11.6botocore==1.14.6certifi==2019.11.28chalice==1.12.0chardet==3.0.4Click==7.0docutils==0.15.2elasticsearch==7.5.1enum-compat==0.0.3get==2019.4.13idna==2.8jmespath==0.9.4post==2019.4.13public==2019.4.13python-dateutil==2.8.1query-string==2019.4.13request==2019.4.13requests==2.22.0requests-aws4auth==0.9s3transfer==0.3.1six==1.14.0typing==3.6.4urllib3==1.25.7\n\n수정한 requirements.txt로 파이썬 패키지를 설치한다.\n1$ pip install -r hourly_report_test_chalice/requirements.txt\n\n자동화 구현Elasticsearch 집계하기 위한 Query DSL 테스트Kibana로 15초 영상 이벤트 데이터 개수를 시간 단위로 집계하는 Query DSL을 테스트한다.\n(UTC 기준) 2020. 1. 27 21:00 ~ 2020. 1. 28 03:00의 이벤트 데이터 개수를 시간 단위로 집계하는 Query DSL은 다음과 같다.\n12345678910111213141516171819202122232425GET event_data_index/_search?filter_path=aggregations.count_by_hour&#123;    \"aggs\" : &#123;        \"count_by_hour\" : &#123;            \"date_histogram\" : &#123;                \"field\" : \"timestamp\",                \"interval\" : \"hour\"            &#125;        &#125;    &#125;,    \"query\" : &#123;      \"bool\": &#123;        \"filter\": &#123;          \"range\": &#123;            \"timestamp\": &#123;              \"format\": \"strict_date_optional_time\",              \"gte\": \"2020-01-27T21:00:00Z\",              \"lte\": \"2020-01-28T03:00:00Z\"            &#125;          &#125;        &#125;      &#125;    &#125;,    \"size\" : 0&#125;\n\n위의 Query DSL에 대한 응답은 다음과 같다.\n1234567891011121314151617181920212223242526272829303132333435363738&#123;  \"aggregations\" : &#123;    \"count_by_hour\" : &#123;      \"buckets\" : [        &#123;          \"key_as_string\" : \"2020-01-27T21:00:00Z\",          \"key\" : 1580158800000,          \"doc_count\" : 9        &#125;,        &#123;          \"key_as_string\" : \"2020-01-27T22:00:00Z\",          \"key\" : 1580162400000,          \"doc_count\" : 18        &#125;,        &#123;          \"key_as_string\" : \"2020-01-27T23:00:00Z\",          \"key\" : 1580166000000,          \"doc_count\" : 13        &#125;,        &#123;          \"key_as_string\" : \"2020-01-28T00:00:00Z\",          \"key\" : 1580169600000,          \"doc_count\" : 63        &#125;,        &#123;          \"key_as_string\" : \"2020-01-28T01:00:00Z\",          \"key\" : 1580173200000,          \"doc_count\" : 105        &#125;,        &#123;          \"key_as_string\" : \"2020-01-28T02:00:00Z\",          \"key\" : 1580176800000,          \"doc_count\" : 30        &#125;      ]    &#125;  &#125;&#125;\n\n테스트에서는 앞서 작성한 Query DSL의 시간 범위(timestamp필드)를 변경하여 이벤트 데이터 개수를 시간단위로 집계한다.\nSlackbot다음 문서를 참고하여 Slackbot을 생성한다.\n\nhttps://api.slack.com/messaging/webhooks\n\n테스트에서는 기존에 생성했던 Webhook API를 사용했다.\nChalice Project 수정 및 배포hourly_report_test_chalice/app.py를 다음과 같이 수정한다.\n\n app.py \n\n다음과 같은 전역 변수의 값은 직접 입력해야 한다.\n\nAWS_ACCESS_KEY_DE\nAWS_SECRET_KEY_DE\nWEBHOOK_URL\nHOST\n\nhourly_report_test_chalice/config.json을 다음과 같이 수정한다.\n123456789101112131415&#123;  \"version\": \"2.0\",  \"app_name\": \"hourly_report_test_chalice\",  \"lambda_timeout\": 120,  \"lambda_memory_size\": 1024,  \"stages\": &#123;    \"dev\": &#123;      \"api_gateway_stage\": \"dev\",      \"iam_role_arn\": ### INPUT Role IAM arn      \"autogen_policy\": false    &#125;  &#125;,  \"manage_iam_role\": false,  \"iam_role_arn\": ### INPUT Role IAM arn&#125;\n\n다음과 같은 명령으로 배포한다.\n123456789$ chalice deployCreating deployment package.Updating lambda function: hourly_report_test_chalice-dev-cron_jobUpdating lambda function: hourly_report_test_chalice-devUpdating rest APIResources deployed:  - Lambda ARN: arn:aws:lambda:ap-northeast-2:534420079206:function:hourly_report_test_chalice-dev-cron_job  - Lambda ARN: arn:aws:lambda:ap-northeast-2:534420079206:function:hourly_report_test_chalice-dev  - Rest API URL: https://dlwun6u9k6.execute-api.ap-northeast-2.amazonaws.com/dev/\n\nBatch 작업 동작 확인을 위해 /excute_hourly_report API를 추가했으며 이로 인하여 배포시 2개의 Lambda 함수가 생성된다.\n결과 확인엔드포인트/excute_hourly_report에 접속하여 Batch 작업이 동작하는지 확인한다. 테스트에서는 동작하는 것을 확인했다.\n12$ curl -XGET \"&#123;AWS Chailce 엔드포인트&#125;/dev/excute_hourly_report\"OK%\n\n슬랙 채널에서 슬랙봇이 매시간마다 시간단위 15초 이벤트 데이터 개수를 메세지로 전송하는지 확인한다. 테스트에서는 슬랙봇 메세지 전송을 확인했다.\n\n  \n","dateCreated":"2020-01-22T21:04:57+09:00","dateModified":"2021-04-11T16:59:03+09:00","datePublished":"2020-01-22T21:04:57+09:00","description":"\n\n학습 차원에서 다음과 같은 동작을 하는 자동화를 구현하고 구현 과정을 문서로 정리한다.\n\n매시간마다 6시간 전까지의 이벤트 데이터 개수를 시간 단위로 집계한다.\n집계된 내용은 Slack Bot으로 매시간마다 보고 한다.\n","headline":"AWS Chalice 활용 실습 - Elasticsearh 이벤트 데이터 집계하여 시간 단위 리포트 자동화 구현","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/","keywords":"Chalice, Slackbot"}</script>
+    <meta name="description" content="학습 차원에서 다음과 같은 동작을 하는 자동화를 구현하고 구현 과정을 문서로 정리한다.  매시간마다 6시간 전까지의 이벤트 데이터 개수를 시간 단위로 집계한다. 집계된 내용은 Slack Bot으로 매시간마다 보고 한다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="AWS Chalice 활용 실습 - Elasticsearh 이벤트 데이터 집계하여 시간 단위 리포트 자동화 구현">
+<meta property="og:url" content="http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/index.html">
+<meta property="og:site_name" content="Kevin의 블로그">
+<meta property="og:description" content="학습 차원에서 다음과 같은 동작을 하는 자동화를 구현하고 구현 과정을 문서로 정리한다.  매시간마다 6시간 전까지의 이벤트 데이터 개수를 시간 단위로 집계한다. 집계된 내용은 Slack Bot으로 매시간마다 보고 한다.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://elaq0625.github.io/post_attachment/aws-chalice-practice-elasticsearch-event-data-aggregation/hourly_test_slackbot.jpg">
+<meta property="article:published_time" content="2020-01-22T12:04:57.000Z">
+<meta property="article:modified_time" content="2021-04-11T07:59:03.169Z">
+<meta property="article:author" content="Kevin">
+<meta property="article:tag" content="Chalice">
+<meta property="article:tag" content="Slackbot">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://elaq0625.github.io/post_attachment/aws-chalice-practice-elasticsearch-event-data-aggregation/hourly_test_slackbot.jpg">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://elaq0625.github.io/assets/images/beer.jpg"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="5">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a
+            class="header-title-link"
+            href="/"
+            aria-label=""
+        >
+            Kevin의 블로그
+        </a>
+    </div>
+    
+        
+            <a
+                class="header-right-picture "
+                href="#about"
+                aria-label="Open the link: /#about"
+            >
+        
+        
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="5">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a
+                    href="/#about"
+                    aria-label="Read more about the author"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                </a>
+                <h4 class="sidebar-profile-name">Kevin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/"
+                            title="홈"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">홈</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="카테고리"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="태그"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link open-algolia-search"
+                             href="/all-archives"
+                            
+                            title="아카이브"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/elaq0625/" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:elaq0625@gmail.com" target="_blank" rel="noopener" title="Mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="5"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            AWS Chalice 활용 실습 - Elasticsearh 이벤트 데이터 집계하여 시간 단위 리포트 자동화 구현
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2020-01-22T21:04:57+09:00">
+	
+		    Jan 22, 2020
+    	
+    </time>
+    
+        <span>in </span>
+        
+    <a class="category-link" href="/categories/%EB%A6%AC%ED%8F%AC%ED%8A%B8-%EC%9E%90%EB%8F%99%ED%99%94-%EA%B5%AC%ED%98%84/">리포트 자동화 구현</a>
+
+
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경-구성"><span class="toc-text">테스트 환경 구성</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#가상환경-구성-및-Chalice-프로젝트-생성"><span class="toc-text">가상환경 구성 및 Chalice 프로젝트 생성</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#자동화-구현"><span class="toc-text">자동화 구현</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Elasticsearch-집계하기-위한-Query-DSL-테스트"><span class="toc-text">Elasticsearch 집계하기 위한 Query DSL 테스트</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Slackbot"><span class="toc-text">Slackbot</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Chalice-Project-수정-및-배포"><span class="toc-text">Chalice Project 수정 및 배포</span></a></li></ol></li></ol>
+
+<p>학습 차원에서 다음과 같은 동작을 하는 자동화를 구현하고 구현 과정을 문서로 정리한다.</p>
+<ul>
+<li>매시간마다 6시간 전까지의 이벤트 데이터 개수를 시간 단위로 집계한다.</li>
+<li>집계된 내용은 Slack Bot으로 매시간마다 보고 한다.</li>
+</ul>
+<a id="more"></a>
+
+<blockquote>
+<p>아래의 구현 과정은 Elasticsearch에 <em>event_data_index</em> 인덱스에 이벤트 데이터가 저장된 것을 가정하고 진행한다.</p>
+</blockquote>
+<h1 id="테스트-환경"><a href="#테스트-환경" class="headerlink" title="테스트 환경"></a>테스트 환경</h1><ul>
+<li>OS : macOS Catalina v10.15.2</li>
+<li>Python : v3.6.5</li>
+<li>Chalice : chalice 1.9.1</li>
+</ul>
+<h1 id="테스트-환경-구성"><a href="#테스트-환경-구성" class="headerlink" title="테스트 환경 구성"></a>테스트 환경 구성</h1><h2 id="가상환경-구성-및-Chalice-프로젝트-생성"><a href="#가상환경-구성-및-Chalice-프로젝트-생성" class="headerlink" title="가상환경 구성 및 Chalice 프로젝트 생성"></a>가상환경 구성 및 Chalice 프로젝트 생성</h2><p>테스트 프로젝트 디렉터리를 구성하고 가상화 환경을 구성한다.<br>Chalice 프로젝트를 생성하고 필요한 라이브러리를 구성한다.<br>프로젝트 디렉터리는 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">hourly_report_test</span><br><span class="line">└── hourly_report_test_chalice</span><br><span class="line">    ├── app.py</span><br><span class="line">    └── requirements.txt</span><br></pre></td></tr></table></figure>
+
+<p>테스트 프로젝트 디렉터리(hourly_report_test)가 생성되었다고 가정하고 다음과 같은 명령으로 가상화 환경을 구성하고 활성화 한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ virtualenv --python=python3.6 .venv</span><br><span class="line">$ <span class="built_in">source</span> .venv/bin/activate</span><br></pre></td></tr></table></figure>
+
+<p>다음과 같은 명령으로 Chalice를 설치하고 새 프로젝트를 생성한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ pip install chalice</span><br><span class="line">$ chalice new-project hourly_report_test_chalice</span><br></pre></td></tr></table></figure>
+
+<p>나머지 파이썬 패키지를 설치하기 위하여 ./hourly_report_test_chalice/requirements.txt를 다음과 같은 내용으로 수정한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">attrs==19.3.0</span><br><span class="line">boto3==1.11.6</span><br><span class="line">botocore==1.14.6</span><br><span class="line">certifi==2019.11.28</span><br><span class="line">chalice==1.12.0</span><br><span class="line">chardet==3.0.4</span><br><span class="line">Click==7.0</span><br><span class="line">docutils==0.15.2</span><br><span class="line">elasticsearch==7.5.1</span><br><span class="line">enum-compat==0.0.3</span><br><span class="line">get==2019.4.13</span><br><span class="line">idna==2.8</span><br><span class="line">jmespath==0.9.4</span><br><span class="line">post==2019.4.13</span><br><span class="line">public==2019.4.13</span><br><span class="line">python-dateutil==2.8.1</span><br><span class="line">query-string==2019.4.13</span><br><span class="line">request==2019.4.13</span><br><span class="line">requests==2.22.0</span><br><span class="line">requests-aws4auth==0.9</span><br><span class="line">s3transfer==0.3.1</span><br><span class="line">six==1.14.0</span><br><span class="line">typing==3.6.4</span><br><span class="line">urllib3==1.25.7</span><br></pre></td></tr></table></figure>
+
+<p>수정한 requirements.txt로 파이썬 패키지를 설치한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ pip install -r hourly_report_test_chalice/requirements.txt</span><br></pre></td></tr></table></figure>
+
+<h1 id="자동화-구현"><a href="#자동화-구현" class="headerlink" title="자동화 구현"></a>자동화 구현</h1><h2 id="Elasticsearch-집계하기-위한-Query-DSL-테스트"><a href="#Elasticsearch-집계하기-위한-Query-DSL-테스트" class="headerlink" title="Elasticsearch 집계하기 위한 Query DSL 테스트"></a>Elasticsearch 집계하기 위한 Query DSL 테스트</h2><p>Kibana로 15초 영상 이벤트 데이터 개수를 시간 단위로 집계하는 Query DSL을 테스트한다.</p>
+<p>(UTC 기준) 2020. 1. 27 21:00 ~ 2020. 1. 28 03:00의 이벤트 데이터 개수를 시간 단위로 집계하는 Query DSL은 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">GET event_data_index/_search?filter_path=aggregations.count_by_hour</span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"aggs"</span> : &#123;</span><br><span class="line">        <span class="string">"count_by_hour"</span> : &#123;</span><br><span class="line">            <span class="string">"date_histogram"</span> : &#123;</span><br><span class="line">                <span class="string">"field"</span> : <span class="string">"timestamp"</span>,</span><br><span class="line">                <span class="string">"interval"</span> : <span class="string">"hour"</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">"query"</span> : &#123;</span><br><span class="line">      <span class="string">"bool"</span>: &#123;</span><br><span class="line">        <span class="string">"filter"</span>: &#123;</span><br><span class="line">          <span class="string">"range"</span>: &#123;</span><br><span class="line">            <span class="string">"timestamp"</span>: &#123;</span><br><span class="line">              <span class="string">"format"</span>: <span class="string">"strict_date_optional_time"</span>,</span><br><span class="line">              <span class="string">"gte"</span>: <span class="string">"2020-01-27T21:00:00Z"</span>,</span><br><span class="line">              <span class="string">"lte"</span>: <span class="string">"2020-01-28T03:00:00Z"</span></span><br><span class="line">            &#125;</span><br><span class="line">          &#125;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">"size"</span> : 0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>위의 Query DSL에 대한 응답은 다음과 같다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="string">"aggregations"</span> : &#123;</span><br><span class="line">    <span class="string">"count_by_hour"</span> : &#123;</span><br><span class="line">      <span class="string">"buckets"</span> : [</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key_as_string"</span> : <span class="string">"2020-01-27T21:00:00Z"</span>,</span><br><span class="line">          <span class="string">"key"</span> : 1580158800000,</span><br><span class="line">          <span class="string">"doc_count"</span> : 9</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key_as_string"</span> : <span class="string">"2020-01-27T22:00:00Z"</span>,</span><br><span class="line">          <span class="string">"key"</span> : 1580162400000,</span><br><span class="line">          <span class="string">"doc_count"</span> : 18</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key_as_string"</span> : <span class="string">"2020-01-27T23:00:00Z"</span>,</span><br><span class="line">          <span class="string">"key"</span> : 1580166000000,</span><br><span class="line">          <span class="string">"doc_count"</span> : 13</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key_as_string"</span> : <span class="string">"2020-01-28T00:00:00Z"</span>,</span><br><span class="line">          <span class="string">"key"</span> : 1580169600000,</span><br><span class="line">          <span class="string">"doc_count"</span> : 63</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key_as_string"</span> : <span class="string">"2020-01-28T01:00:00Z"</span>,</span><br><span class="line">          <span class="string">"key"</span> : 1580173200000,</span><br><span class="line">          <span class="string">"doc_count"</span> : 105</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key_as_string"</span> : <span class="string">"2020-01-28T02:00:00Z"</span>,</span><br><span class="line">          <span class="string">"key"</span> : 1580176800000,</span><br><span class="line">          <span class="string">"doc_count"</span> : 30</span><br><span class="line">        &#125;</span><br><span class="line">      ]</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>테스트에서는 앞서 작성한 Query DSL의 시간 범위(timestamp필드)를 변경하여 이벤트 데이터 개수를 시간단위로 집계한다.</p>
+<h2 id="Slackbot"><a href="#Slackbot" class="headerlink" title="Slackbot"></a>Slackbot</h2><p>다음 문서를 참고하여 Slackbot을 생성한다.</p>
+<ul>
+<li><a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener">https://api.slack.com/messaging/webhooks</a></li>
+</ul>
+<p>테스트에서는 기존에 생성했던 Webhook API를 사용했다.</p>
+<h2 id="Chalice-Project-수정-및-배포"><a href="#Chalice-Project-수정-및-배포" class="headerlink" title="Chalice Project 수정 및 배포"></a>Chalice Project 수정 및 배포</h2><p>hourly_report_test_chalice/app.py를 다음과 같이 수정한다.</p>
+<ul>
+<li><a href="/post_attachment/aws-chalice-practice-elasticsearch-event-data-aggregation/app.py" target="_blank"> app.py </a></li>
+</ul>
+<p>다음과 같은 전역 변수의 값은 직접 입력해야 한다.</p>
+<ul>
+<li>AWS_ACCESS_KEY_DE</li>
+<li>AWS_SECRET_KEY_DE</li>
+<li>WEBHOOK_URL</li>
+<li>HOST</li>
+</ul>
+<p>hourly_report_test_chalice/config.json을 다음과 같이 수정한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="string">"version"</span>: <span class="string">"2.0"</span>,</span><br><span class="line">  <span class="string">"app_name"</span>: <span class="string">"hourly_report_test_chalice"</span>,</span><br><span class="line">  <span class="string">"lambda_timeout"</span>: 120,</span><br><span class="line">  <span class="string">"lambda_memory_size"</span>: 1024,</span><br><span class="line">  <span class="string">"stages"</span>: &#123;</span><br><span class="line">    <span class="string">"dev"</span>: &#123;</span><br><span class="line">      <span class="string">"api_gateway_stage"</span>: <span class="string">"dev"</span>,</span><br><span class="line">      <span class="string">"iam_role_arn"</span>: <span class="comment">### INPUT Role IAM arn</span></span><br><span class="line">      <span class="string">"autogen_policy"</span>: <span class="literal">false</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="string">"manage_iam_role"</span>: <span class="literal">false</span>,</span><br><span class="line">  <span class="string">"iam_role_arn"</span>: <span class="comment">### INPUT Role IAM arn</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>다음과 같은 명령으로 배포한다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ chalice deploy</span><br><span class="line">Creating deployment package.</span><br><span class="line">Updating lambda <span class="keyword">function</span>: hourly_report_test_chalice-dev-cron_job</span><br><span class="line">Updating lambda <span class="keyword">function</span>: hourly_report_test_chalice-dev</span><br><span class="line">Updating rest API</span><br><span class="line">Resources deployed:</span><br><span class="line">  - Lambda ARN: arn:aws:lambda:ap-northeast-2:534420079206:<span class="keyword">function</span>:hourly_report_test_chalice-dev-cron_job</span><br><span class="line">  - Lambda ARN: arn:aws:lambda:ap-northeast-2:534420079206:<span class="keyword">function</span>:hourly_report_test_chalice-dev</span><br><span class="line">  - Rest API URL: https://dlwun6u9k6.execute-api.ap-northeast-2.amazonaws.com/dev/</span><br></pre></td></tr></table></figure>
+
+<p>Batch 작업 동작 확인을 위해 /excute_hourly_report API를 추가했으며 이로 인하여 배포시 2개의 Lambda 함수가 생성된다.</p>
+<p>결과 확인<br>엔드포인트/excute_hourly_report에 접속하여 Batch 작업이 동작하는지 확인한다. 테스트에서는 동작하는 것을 확인했다.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ curl -XGET <span class="string">"&#123;AWS Chailce 엔드포인트&#125;/dev/excute_hourly_report"</span></span><br><span class="line">OK%</span><br></pre></td></tr></table></figure>
+
+<p>슬랙 채널에서 슬랙봇이 매시간마다 시간단위 15초 이벤트 데이터 개수를 메세지로 전송하는지 확인한다. 테스트에서는 슬랙봇 메세지 전송을 확인했다.</p>
+<a href="/post_attachment/aws-chalice-practice-elasticsearch-event-data-aggregation/hourly_test_slackbot.jpg" target="_blank">
+  <img src="/post_attachment/aws-chalice-practice-elasticsearch-event-data-aggregation/hourly_test_slackbot.jpg"/>
+</a>
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                
+    <a class="tag tag--primary tag--small t-link" href="/tags/Chalice/" rel="tag">Chalice</a> <a class="tag tag--primary tag--small t-link" href="/tags/Slackbot/" rel="tag">Slackbot</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2020/06/05/elasticsearch-associated-url-link/"
+                    data-tooltip="Elasticsearch 유용한 링크 정리"
+                    aria-label="PREVIOUS: Elasticsearch 유용한 링크 정리"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2020/01/15/elastcisearch-indexing-and-s3-save/"
+                    data-tooltip="Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+&#39;)가 포함된 데이터 처리 테스트"
+                    aria-label="NEXT: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+&#39;)가 포함된 데이터 처리 테스트"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript" target="_blank" rel="noopener">comments powered by Disqus.</a></noscript>
+</div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2021 Kevin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="5">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2020/06/05/elasticsearch-associated-url-link/"
+                    data-tooltip="Elasticsearch 유용한 링크 정리"
+                    aria-label="PREVIOUS: Elasticsearch 유용한 링크 정리"
+                >
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2020/01/15/elastcisearch-indexing-and-s3-save/"
+                    data-tooltip="Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+&#39;)가 포함된 데이터 처리 테스트"
+                    aria-label="NEXT: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+&#39;)가 포함된 데이터 처리 테스트"
+                >
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="Share this post"
+            >
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
+                >
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
+                >
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
+                >
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a
+                        class="post-action-btn btn btn--default"
+                        href="#disqus_thread"
+                        aria-label="Leave a comment"
+                    >
+                        <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="5">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"
+                        aria-label="Share on Facebook"
+                    >
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"
+                        aria-label="Share on Twitter"
+                    >
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/"
+                        aria-label="Share on Google+"
+                    >
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+        
+            <h4 id="about-card-name">Kevin</h4>
+        
+            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>Developer, DE</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                서울 / 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/curtain.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+        <script>
+          var disqus_config = function() {
+            this.page.url = 'http://elaq0625.github.io/2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/';
+              
+            this.page.identifier = '2020/01/22/aws-chalice-practice-elasticsearch-event-data-aggregation/';
+              
+          };
+          (function() {
+            var d = document, s = d.createElement('script');
+            var disqus_shortname = 'elaq0625';
+            s.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+          })();
+        </script>
+    
+
+
+
+
+    </body>
+</html>
