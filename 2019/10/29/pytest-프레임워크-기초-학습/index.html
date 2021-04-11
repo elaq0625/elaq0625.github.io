@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
     
 <head>
     <meta charset="UTF-8">
@@ -20,7 +20,7 @@
 <meta property="og:url" content="http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/index.html">
 <meta property="og:site_name" content="Kevin의 블로그">
 <meta property="og:description" content="Pytest framework에 관하여 학습한 내용을 정리한다.Pytest 공식 가이드 문서 내용 중 아래의 카테고리에 해당하는 내용을 정리했다.  Asserting with the assert statement pytest fixtures: explicit, modular, scalable Parametrizing fixtures and test fu">
-<meta property="og:locale" content="ko_KR">
+<meta property="og:locale" content="en_US">
 <meta property="article:published_time" content="2019-10-28T22:38:28.000Z">
 <meta property="article:modified_time" content="2020-03-07T12:12:15.000Z">
 <meta property="article:author" content="Kevin">
@@ -86,11 +86,11 @@
             <a
                 class="header-right-picture "
                 href="#about"
-                aria-label="링크 열기: /#about"
+                aria-label="Open the link: /#about"
             >
         
         
-            <img class="header-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
         
         </a>
     
@@ -109,13 +109,13 @@
             <div class="sidebar-profile">
                 <a
                     href="/#about"
-                    aria-label="저자에 대해 더 알아보기"
+                    aria-label="Read more about the author"
                 >
-                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
                 </a>
                 <h4 class="sidebar-profile-name">Kevin</h4>
                 
-                    <h5 class="sidebar-profile-bio"><p>author.bio</p>
+                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
 </h5>
                 
             </div>
@@ -224,11 +224,11 @@
         <div class="post-meta">
     <time datetime="2019-10-29T07:38:28+09:00">
 	
-		    2019/10/29
+		    Oct 29, 2019
     	
     </time>
     
-        <span>카테고리 </span>
+        <span>in </span>
         
     <a class="category-link" href="/categories/%ED%85%8C%EC%8A%A4%ED%8A%B8-%EC%BD%94%EB%93%9C/">테스트 코드</a>
 
@@ -242,7 +242,7 @@
     
     <div class="post-content markdown">
         <div class="main-content-wrap">
-            <h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#환경-구성"><span class="toc-text">환경 구성</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Pytest-실행-및-실행-결과-설명"><span class="toc-text">Pytest 실행 및 실행 결과 설명</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#테스트-코드-실행하는-방법"><span class="toc-text">테스트 코드 실행하는 방법</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#사용자가-지정한-규칙에-해당하는-테스트-코드-실행하는-방법"><span class="toc-text">사용자가 지정한 규칙에 해당하는 테스트 코드 실행하는 방법</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Assert-기능과-Pytest-실행-결과-설명"><span class="toc-text">Assert 기능과 Pytest 실행 결과 설명</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#AssertError-발생-시-출력되는-메시지"><span class="toc-text">AssertError 발생 시 출력되는 메시지</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#AssertError시-출력되는-메세지-추가하기"><span class="toc-text">AssertError시 출력되는 메세지 추가하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AssertError시-출력되는-메세지-변경하기"><span class="toc-text">AssertError시 출력되는 메세지 변경하기</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#ExceptionError-발생-테스트하기"><span class="toc-text">ExceptionError 발생 테스트하기</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Pytest의-Fixture-설명"><span class="toc-text">Pytest의 Fixture 설명</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fixture를-이용해-함수를-변수처럼-사용하기"><span class="toc-text">Fixture를 이용해 함수를 변수처럼 사용하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Pytest-fixture를-활용해-테스트코드-Setup-Teardown-만들기"><span class="toc-text">Pytest fixture를 활용해 테스트코드 Setup, Teardown 만들기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Pytest-fixture의-파라미터-인자-설정으로-다수의-fixture-생성하기"><span class="toc-text">Pytest fixture의 파라미터 인자 설정으로 다수의 fixture 생성하기</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#파라미터-인자를-직접-테스트-코드에-전달하기"><span class="toc-text">파라미터 인자를 직접 테스트 코드에 전달하기</span></a></li></ol>
+            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#환경-구성"><span class="toc-text">환경 구성</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Pytest-실행-및-실행-결과-설명"><span class="toc-text">Pytest 실행 및 실행 결과 설명</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#테스트-코드-실행하는-방법"><span class="toc-text">테스트 코드 실행하는 방법</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#사용자가-지정한-규칙에-해당하는-테스트-코드-실행하는-방법"><span class="toc-text">사용자가 지정한 규칙에 해당하는 테스트 코드 실행하는 방법</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Assert-기능과-Pytest-실행-결과-설명"><span class="toc-text">Assert 기능과 Pytest 실행 결과 설명</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#AssertError-발생-시-출력되는-메시지"><span class="toc-text">AssertError 발생 시 출력되는 메시지</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#AssertError시-출력되는-메세지-추가하기"><span class="toc-text">AssertError시 출력되는 메세지 추가하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AssertError시-출력되는-메세지-변경하기"><span class="toc-text">AssertError시 출력되는 메세지 변경하기</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#ExceptionError-발생-테스트하기"><span class="toc-text">ExceptionError 발생 테스트하기</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Pytest의-Fixture-설명"><span class="toc-text">Pytest의 Fixture 설명</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fixture를-이용해-함수를-변수처럼-사용하기"><span class="toc-text">Fixture를 이용해 함수를 변수처럼 사용하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Pytest-fixture를-활용해-테스트코드-Setup-Teardown-만들기"><span class="toc-text">Pytest fixture를 활용해 테스트코드 Setup, Teardown 만들기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Pytest-fixture의-파라미터-인자-설정으로-다수의-fixture-생성하기"><span class="toc-text">Pytest fixture의 파라미터 인자 설정으로 다수의 fixture 생성하기</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#파라미터-인자를-직접-테스트-코드에-전달하기"><span class="toc-text">파라미터 인자를 직접 테스트 코드에 전달하기</span></a></li></ol>
 
 <p>Pytest framework에 관하여 학습한 내용을 정리한다.<br><a href="https://docs.pytest.org/en/latest/example/index.html" target="_blank" rel="noopener">Pytest 공식 가이드</a> 문서 내용 중 아래의 카테고리에 해당하는 내용을 정리했다.</p>
 <ul>
@@ -425,7 +425,7 @@
     <div id="post-footer" class="post-footer main-content-wrap">
         
             <div class="post-footer-tags">
-                <span class="text-color-light text-small">태그</span><br/>
+                <span class="text-color-light text-small">TAGGED IN</span><br/>
                 
     <a class="tag tag--primary tag--small t-link" href="/tags/pytest/" rel="tag">pytest</a>
 
@@ -442,11 +442,11 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                     data-tooltip="Amazon Elasticsearch 인덱스 복구"
-                    aria-label="이전: Amazon Elasticsearch 인덱스 복구"
+                    aria-label="PREVIOUS: Amazon Elasticsearch 인덱스 복구"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
                     </a>
             </li>
             <li class="post-action">
@@ -456,10 +456,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/10/16/Kinesis-Data-Stream-%E1%84%89%E1%85%A3%E1%84%83%E1%85%B3%E1%84%83%E1%85%A1%E1%86%BC-%E1%84%8C%E1%85%A6%E1%84%8B%E1%85%A3%E1%86%A8-%E1%84%8C%E1%85%A9%E1%84%80%E1%85%A5%E1%86%AB-%E1%84%92%E1%85%AA%E1%86%A8%E1%84%8B%E1%85%B5%E1%86%AB/"
                     data-tooltip="Kinesis Data Stream - 샤드당 제약 조건 확인"
-                    aria-label="다음: Kinesis Data Stream - 샤드당 제약 조건 확인"
+                    aria-label="NEXT: Kinesis Data Stream - 샤드당 제약 조건 확인"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -470,7 +470,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="이 포스트 공유하기"
+                aria-label="Share this post"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -482,8 +482,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
-                    title="Facebook에 공유하기"
-                    aria-label="Facebook에 공유하기"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -495,8 +495,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
-                    title="Twitter에 공유하기"
-                    aria-label="Twitter에 공유하기"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -508,8 +508,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
-                    title="Google+에 공유하기"
-                    aria-label="Google+에 공유하기"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -521,7 +521,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="댓글을 남겨주세요"
+                        aria-label="Leave a comment"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -530,7 +530,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -571,11 +571,11 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                     data-tooltip="Amazon Elasticsearch 인덱스 복구"
-                    aria-label="이전: Amazon Elasticsearch 인덱스 복구"
+                    aria-label="PREVIOUS: Amazon Elasticsearch 인덱스 복구"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
                     </a>
             </li>
             <li class="post-action">
@@ -585,10 +585,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/10/16/Kinesis-Data-Stream-%E1%84%89%E1%85%A3%E1%84%83%E1%85%B3%E1%84%83%E1%85%A1%E1%86%BC-%E1%84%8C%E1%85%A6%E1%84%8B%E1%85%A3%E1%86%A8-%E1%84%8C%E1%85%A9%E1%84%80%E1%85%A5%E1%86%AB-%E1%84%92%E1%85%AA%E1%86%A8%E1%84%8B%E1%85%B5%E1%86%AB/"
                     data-tooltip="Kinesis Data Stream - 샤드당 제약 조건 확인"
-                    aria-label="다음: Kinesis Data Stream - 샤드당 제약 조건 확인"
+                    aria-label="NEXT: Kinesis Data Stream - 샤드당 제약 조건 확인"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -599,7 +599,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="이 포스트 공유하기"
+                aria-label="Share this post"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -611,8 +611,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
-                    title="Facebook에 공유하기"
-                    aria-label="Facebook에 공유하기"
+                    title="Share on Facebook"
+                    aria-label="Share on Facebook"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -624,8 +624,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
-                    title="Twitter에 공유하기"
-                    aria-label="Twitter에 공유하기"
+                    title="Share on Twitter"
+                    aria-label="Share on Twitter"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -637,8 +637,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
-                    title="Google+에 공유하기"
-                    aria-label="Google+에 공유하기"
+                    title="Share on Google+"
+                    aria-label="Share on Google+"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -650,7 +650,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="댓글을 남겨주세요"
+                        aria-label="Leave a comment"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -659,7 +659,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -681,9 +681,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
-                        aria-label="Facebook에 공유하기"
+                        aria-label="Share on Facebook"
                     >
-                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
                     </a>
                 </li>
             
@@ -694,9 +694,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
-                        aria-label="Twitter에 공유하기"
+                        aria-label="Share on Twitter"
                     >
-                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
                     </a>
                 </li>
             
@@ -707,9 +707,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
-                        aria-label="Google+에 공유하기"
+                        aria-label="Share on Google+"
                     >
-                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
                     </a>
                 </li>
             
@@ -732,18 +732,18 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
         
             <h4 id="about-card-name">Kevin</h4>
         
-            <div id="about-card-bio"><p>author.bio</p>
+            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
 </div>
         
         
             <div id="about-card-job">
                 <i class="fa fa-briefcase"></i>
                 <br/>
-                <p>author.job</p>
+                <p>Developer, DE</p>
 
             </div>
         
