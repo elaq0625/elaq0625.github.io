@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
     
 <head>
     <meta charset="UTF-8">
@@ -20,7 +20,7 @@
 <meta property="og:url" content="http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/index.html">
 <meta property="og:site_name" content="Kevin의 블로그">
 <meta property="og:description" content="Docker 시작하기을 따라하며 학습한 내용을 정리한다.">
-<meta property="og:locale" content="en_US">
+<meta property="og:locale" content="ko_KR">
 <meta property="article:published_time" content="2019-09-15T21:48:43.000Z">
 <meta property="article:modified_time" content="2020-02-15T05:07:14.000Z">
 <meta property="article:author" content="Kevin">
@@ -86,11 +86,11 @@
             <a
                 class="header-right-picture "
                 href="#about"
-                aria-label="Open the link: /#about"
+                aria-label="링크 열기: /#about"
             >
         
         
-            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
         
         </a>
     
@@ -109,13 +109,13 @@
             <div class="sidebar-profile">
                 <a
                     href="/#about"
-                    aria-label="Read more about the author"
+                    aria-label="저자에 대해 더 알아보기"
                 >
-                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
                 </a>
                 <h4 class="sidebar-profile-name">Kevin</h4>
                 
-                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+                    <h5 class="sidebar-profile-bio"><p>author.bio</p>
 </h5>
                 
             </div>
@@ -224,11 +224,11 @@
         <div class="post-meta">
     <time datetime="2019-09-16T06:48:43+09:00">
 	
-		    Sep 16, 2019
+		    2019/09/16
     	
     </time>
     
-        <span>in </span>
+        <span>카테고리 </span>
         
     <a class="category-link" href="/categories/%EA%B0%80%EC%83%81%ED%99%94-%EC%97%94%EC%A7%84/">가상화 엔진</a>
 
@@ -242,7 +242,7 @@
     
     <div class="post-content markdown">
         <div class="main-content-wrap">
-            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#학습한-내용"><span class="toc-text">학습한 내용</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-오리엔테이션"><span class="toc-text">1. 오리엔테이션</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-컨테이너"><span class="toc-text">2. 컨테이너</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Docker-이미지-생성-컨테이너-실행-튜토리얼-진행"><span class="toc-text">Docker 이미지 생성, 컨테이너 실행 튜토리얼 진행</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Docker-이미지-공유"><span class="toc-text">Docker 이미지 공유</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-서비스"><span class="toc-text">3. 서비스</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#새로운-load-balanced-app-실행"><span class="toc-text">새로운 load-balanced app 실행</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#앱-확장"><span class="toc-text">앱 확장</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#명령어-모음"><span class="toc-text">명령어 모음</span></a></li></ol></li></ol>
+            <h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#학습한-내용"><span class="toc-text">학습한 내용</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-오리엔테이션"><span class="toc-text">1. 오리엔테이션</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-컨테이너"><span class="toc-text">2. 컨테이너</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Docker-이미지-생성-컨테이너-실행-튜토리얼-진행"><span class="toc-text">Docker 이미지 생성, 컨테이너 실행 튜토리얼 진행</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Docker-이미지-공유"><span class="toc-text">Docker 이미지 공유</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-서비스"><span class="toc-text">3. 서비스</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#새로운-load-balanced-app-실행"><span class="toc-text">새로운 load-balanced app 실행</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#앱-확장"><span class="toc-text">앱 확장</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#명령어-모음"><span class="toc-text">명령어 모음</span></a></li></ol></li></ol>
 <p><a href="https://docs.docker.com/get-started/" target="_blank" rel="noopener">Docker 시작하기</a>을 따라하며 학습한 내용을 정리한다.</p>
 <a id="more"></a>
 
@@ -371,7 +371,7 @@
     <div id="post-footer" class="post-footer main-content-wrap">
         
             <div class="post-footer-tags">
-                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                <span class="text-color-light text-small">태그</span><br/>
                 
     <a class="tag tag--primary tag--small t-link" href="/tags/Docker/" rel="tag">Docker</a>
 
@@ -388,11 +388,11 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/09/16/Docker-%E1%84%8F%E1%85%A5%E1%86%AB%E1%84%90%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%82%E1%85%A5%E1%84%80%E1%85%A1%E1%86%AB-%E1%84%87%E1%85%A9%E1%86%AF%E1%84%85%E1%85%B2%E1%86%B7-%E1%84%80%E1%85%A9%E1%86%BC%E1%84%8B%E1%85%B2-%E1%84%8C%E1%85%A9%E1%84%89%E1%85%A1/"
                     data-tooltip="Docker 컨테이너간 볼륨 공유 조사"
-                    aria-label="PREVIOUS: Docker 컨테이너간 볼륨 공유 조사"
+                    aria-label="이전: Docker 컨테이너간 볼륨 공유 조사"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
             </li>
             <li class="post-action">
@@ -402,10 +402,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/08/30/Fluentd-%E1%84%91%E1%85%A1%E1%84%8B%E1%85%B5%E1%86%AF-%E1%84%85%E1%85%A9%E1%84%80%E1%85%B3-%E1%84%89%E1%85%AE%E1%84%8C%E1%85%B5%E1%86%B8-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%91%E1%85%A1%E1%84%8B%E1%85%B5%E1%86%AF-%E1%84%89%E1%85%A2%E1%86%BC%E1%84%89%E1%85%A5%E1%86%BC-%E1%84%89%E1%85%B5%E1%84%8C%E1%85%A5%E1%86%B7-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트"
-                    aria-label="NEXT: Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트"
+                    aria-label="다음: Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -416,7 +416,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="Share this post"
+                aria-label="이 포스트 공유하기"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -428,8 +428,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
-                    title="Share on Facebook"
-                    aria-label="Share on Facebook"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -441,8 +441,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
-                    title="Share on Twitter"
-                    aria-label="Share on Twitter"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -454,8 +454,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
-                    title="Share on Google+"
-                    aria-label="Share on Google+"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -467,7 +467,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="Leave a comment"
+                        aria-label="댓글을 남겨주세요"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -476,7 +476,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -517,11 +517,11 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/09/16/Docker-%E1%84%8F%E1%85%A5%E1%86%AB%E1%84%90%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%82%E1%85%A5%E1%84%80%E1%85%A1%E1%86%AB-%E1%84%87%E1%85%A9%E1%86%AF%E1%84%85%E1%85%B2%E1%86%B7-%E1%84%80%E1%85%A9%E1%86%BC%E1%84%8B%E1%85%B2-%E1%84%8C%E1%85%A9%E1%84%89%E1%85%A1/"
                     data-tooltip="Docker 컨테이너간 볼륨 공유 조사"
-                    aria-label="PREVIOUS: Docker 컨테이너간 볼륨 공유 조사"
+                    aria-label="이전: Docker 컨테이너간 볼륨 공유 조사"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
             </li>
             <li class="post-action">
@@ -531,10 +531,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/08/30/Fluentd-%E1%84%91%E1%85%A1%E1%84%8B%E1%85%B5%E1%86%AF-%E1%84%85%E1%85%A9%E1%84%80%E1%85%B3-%E1%84%89%E1%85%AE%E1%84%8C%E1%85%B5%E1%86%B8-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%91%E1%85%A1%E1%84%8B%E1%85%B5%E1%86%AF-%E1%84%89%E1%85%A2%E1%86%BC%E1%84%89%E1%85%A5%E1%86%BC-%E1%84%89%E1%85%B5%E1%84%8C%E1%85%A5%E1%86%B7-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트"
-                    aria-label="NEXT: Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트"
+                    aria-label="다음: Fluentd - 파일 로그 수집 관련 파일 생성 시점 테스트"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -545,7 +545,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="Share this post"
+                aria-label="이 포스트 공유하기"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -557,8 +557,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
-                    title="Share on Facebook"
-                    aria-label="Share on Facebook"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -570,8 +570,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
-                    title="Share on Twitter"
-                    aria-label="Share on Twitter"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -583,8 +583,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
-                    title="Share on Google+"
-                    aria-label="Share on Google+"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -596,7 +596,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="Leave a comment"
+                        aria-label="댓글을 남겨주세요"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -605,7 +605,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -627,9 +627,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
-                        aria-label="Share on Facebook"
+                        aria-label="Facebook에 공유하기"
                     >
-                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
                     </a>
                 </li>
             
@@ -640,9 +640,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
-                        aria-label="Share on Twitter"
+                        aria-label="Twitter에 공유하기"
                     >
-                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
                     </a>
                 </li>
             
@@ -653,9 +653,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/09/16/Docker-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
-                        aria-label="Share on Google+"
+                        aria-label="Google+에 공유하기"
                     >
-                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
                     </a>
                 </li>
             
@@ -678,18 +678,18 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
         
             <h4 id="about-card-name">Kevin</h4>
         
-            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+            <div id="about-card-bio"><p>author.bio</p>
 </div>
         
         
             <div id="about-card-job">
                 <i class="fa fa-briefcase"></i>
                 <br/>
-                <p>Developer, DE</p>
+                <p>author.job</p>
 
             </div>
         

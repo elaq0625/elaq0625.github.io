@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
     
 <head>
     <meta charset="UTF-8">
@@ -20,7 +20,7 @@
 <meta property="og:url" content="http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/index.html">
 <meta property="og:site_name" content="Kevin의 블로그">
 <meta property="og:description" content="Elasticsearch 공식 사이트의 Query DSL에 대해 학습했던 부분을 정리한다. Elasticsearch - Query DSL과 관련된 모든 내용을 설명하고 공유하는 것이 이 문서의 목적은 아니며 자세한 설명은 공식 문서를 참고하도록 한다.">
-<meta property="og:locale" content="en_US">
+<meta property="og:locale" content="ko_KR">
 <meta property="article:published_time" content="2020-01-03T07:56:29.000Z">
 <meta property="article:modified_time" content="2020-02-12T14:24:53.000Z">
 <meta property="article:author" content="Kevin">
@@ -87,11 +87,11 @@
             <a
                 class="header-right-picture "
                 href="#about"
-                aria-label="Open the link: /#about"
+                aria-label="링크 열기: /#about"
             >
         
         
-            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
         
         </a>
     
@@ -110,13 +110,13 @@
             <div class="sidebar-profile">
                 <a
                     href="/#about"
-                    aria-label="Read more about the author"
+                    aria-label="저자에 대해 더 알아보기"
                 >
-                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
                 </a>
                 <h4 class="sidebar-profile-name">Kevin</h4>
                 
-                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+                    <h5 class="sidebar-profile-bio"><p>author.bio</p>
 </h5>
                 
             </div>
@@ -225,11 +225,11 @@
         <div class="post-meta">
     <time datetime="2020-01-03T16:56:29+09:00">
 	
-		    Jan 03, 2020
+		    2020/01/03
     	
     </time>
     
-        <span>in </span>
+        <span>카테고리 </span>
         
     <a class="category-link" href="/categories/%EA%B2%80%EC%83%89%EC%97%94%EC%A7%84/">검색엔진</a>
 
@@ -243,7 +243,7 @@
     
     <div class="post-content markdown">
         <div class="main-content-wrap">
-            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#샘플-데이터-Elasticsearch에-추가"><span class="toc-text">샘플 데이터 Elasticsearch에 추가</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#문서-범위"><span class="toc-text">문서 범위</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Query-요청과-응답에-대한-공통-부분-설명"><span class="toc-text">Query 요청과 응답에 대한 공통 부분 설명</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#쿼리와-필터-컨텍스트-Query-and-filter-context"><span class="toc-text">쿼리와 필터 컨텍스트(Query and filter context)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#관련성-점수-Relevance-scores"><span class="toc-text">관련성 점수(Relevance scores)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Query-context"><span class="toc-text">Query context</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Filter-context"><span class="toc-text">Filter context</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#복합-쿼리-Compound-queries"><span class="toc-text">복합 쿼리(Compound queries)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Boolean-query"><span class="toc-text">Boolean query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Dis-max-query"><span class="toc-text">Dis_max query</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#전문-쿼리-Full-text-queries"><span class="toc-text">전문 쿼리(Full text queries)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Match-query"><span class="toc-text">Match query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Match-phrase-query"><span class="toc-text">Match phrase query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Multi-match-query"><span class="toc-text">Multi-match query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Match-all-query"><span class="toc-text">Match all query</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#텀-레벨-쿼리-Term-level-queries"><span class="toc-text">텀 레벨 쿼리(Term-level queries)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Exists-query"><span class="toc-text">Exists query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Range-query"><span class="toc-text">Range query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Term-query"><span class="toc-text">Term query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Terms-query"><span class="toc-text">Terms query</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#참고-문서"><span class="toc-text">참고 문서</span></a></li></ol>
+            <h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#샘플-데이터-Elasticsearch에-추가"><span class="toc-text">샘플 데이터 Elasticsearch에 추가</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#문서-범위"><span class="toc-text">문서 범위</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Query-요청과-응답에-대한-공통-부분-설명"><span class="toc-text">Query 요청과 응답에 대한 공통 부분 설명</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#쿼리와-필터-컨텍스트-Query-and-filter-context"><span class="toc-text">쿼리와 필터 컨텍스트(Query and filter context)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#관련성-점수-Relevance-scores"><span class="toc-text">관련성 점수(Relevance scores)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Query-context"><span class="toc-text">Query context</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Filter-context"><span class="toc-text">Filter context</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#복합-쿼리-Compound-queries"><span class="toc-text">복합 쿼리(Compound queries)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Boolean-query"><span class="toc-text">Boolean query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Dis-max-query"><span class="toc-text">Dis_max query</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#전문-쿼리-Full-text-queries"><span class="toc-text">전문 쿼리(Full text queries)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Match-query"><span class="toc-text">Match query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Match-phrase-query"><span class="toc-text">Match phrase query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Multi-match-query"><span class="toc-text">Multi-match query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Match-all-query"><span class="toc-text">Match all query</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#텀-레벨-쿼리-Term-level-queries"><span class="toc-text">텀 레벨 쿼리(Term-level queries)</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Exists-query"><span class="toc-text">Exists query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Range-query"><span class="toc-text">Range query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Term-query"><span class="toc-text">Term query</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Terms-query"><span class="toc-text">Terms query</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#참고-문서"><span class="toc-text">참고 문서</span></a></li></ol>
 
 <p>Elasticsearch 공식 사이트의 Query DSL에 대해 학습했던 부분을 정리한다. Elasticsearch - Query DSL과 관련된 모든 내용을 설명하고 공유하는 것이 이 문서의 목적은 아니며 자세한 설명은 공식 문서를 참고하도록 한다.</p>
 <a id="more"></a>
@@ -364,7 +364,7 @@
     <div id="post-footer" class="post-footer main-content-wrap">
         
             <div class="post-footer-tags">
-                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                <span class="text-color-light text-small">태그</span><br/>
                 
     <a class="tag tag--primary tag--small t-link" href="/tags/Elasticsearch/" rel="tag">Elasticsearch</a> <a class="tag tag--primary tag--small t-link" href="/tags/Query-DSL/" rel="tag">Query DSL</a>
 
@@ -381,11 +381,11 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Fluentd - Http Input Plugin 부하 및 성능 테스트"
-                    aria-label="PREVIOUS: Fluentd - Http Input Plugin 부하 및 성능 테스트"
+                    aria-label="이전: Fluentd - Http Input Plugin 부하 및 성능 테스트"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
             </li>
             <li class="post-action">
@@ -395,10 +395,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Metabase 운영 관련 기초 테스트"
-                    aria-label="NEXT: Metabase 운영 관련 기초 테스트"
+                    aria-label="다음: Metabase 운영 관련 기초 테스트"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -409,7 +409,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="Share this post"
+                aria-label="이 포스트 공유하기"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -421,8 +421,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
-                    title="Share on Facebook"
-                    aria-label="Share on Facebook"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -434,8 +434,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
-                    title="Share on Twitter"
-                    aria-label="Share on Twitter"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -447,8 +447,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
-                    title="Share on Google+"
-                    aria-label="Share on Google+"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -460,7 +460,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="Leave a comment"
+                        aria-label="댓글을 남겨주세요"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -469,7 +469,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -510,11 +510,11 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Fluentd - Http Input Plugin 부하 및 성능 테스트"
-                    aria-label="PREVIOUS: Fluentd - Http Input Plugin 부하 및 성능 테스트"
+                    aria-label="이전: Fluentd - Http Input Plugin 부하 및 성능 테스트"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
             </li>
             <li class="post-action">
@@ -524,10 +524,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Metabase 운영 관련 기초 테스트"
-                    aria-label="NEXT: Metabase 운영 관련 기초 테스트"
+                    aria-label="다음: Metabase 운영 관련 기초 테스트"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -538,7 +538,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="Share this post"
+                aria-label="이 포스트 공유하기"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -550,8 +550,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
-                    title="Share on Facebook"
-                    aria-label="Share on Facebook"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -563,8 +563,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
-                    title="Share on Twitter"
-                    aria-label="Share on Twitter"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -576,8 +576,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
-                    title="Share on Google+"
-                    aria-label="Share on Google+"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -589,7 +589,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="Leave a comment"
+                        aria-label="댓글을 남겨주세요"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -598,7 +598,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -620,9 +620,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
-                        aria-label="Share on Facebook"
+                        aria-label="Facebook에 공유하기"
                     >
-                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
                     </a>
                 </li>
             
@@ -633,9 +633,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
-                        aria-label="Share on Twitter"
+                        aria-label="Twitter에 공유하기"
                     >
-                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
                     </a>
                 </li>
             
@@ -646,9 +646,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
-                        aria-label="Share on Google+"
+                        aria-label="Google+에 공유하기"
                     >
-                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
                     </a>
                 </li>
             
@@ -671,18 +671,18 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
         
             <h4 id="about-card-name">Kevin</h4>
         
-            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+            <div id="about-card-bio"><p>author.bio</p>
 </div>
         
         
             <div id="about-card-job">
                 <i class="fa fa-briefcase"></i>
                 <br/>
-                <p>Developer, DE</p>
+                <p>author.job</p>
 
             </div>
         

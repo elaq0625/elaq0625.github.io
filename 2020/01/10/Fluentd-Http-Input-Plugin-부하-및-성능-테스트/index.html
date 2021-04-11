@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
     
 <head>
     <meta charset="UTF-8">
@@ -20,7 +20,7 @@
 <meta property="og:url" content="http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/index.html">
 <meta property="og:site_name" content="Kevin의 블로그">
 <meta property="og:description" content="HTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.  Fluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트) Fluentd Htt">
-<meta property="og:locale" content="en_US">
+<meta property="og:locale" content="ko_KR">
 <meta property="og:image" content="http://elaq0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=100__1.png">
 <meta property="og:image" content="http://elaq0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=100__2.png">
 <meta property="og:image" content="http://elaq0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=100__3.png">
@@ -105,11 +105,11 @@
             <a
                 class="header-right-picture "
                 href="#about"
-                aria-label="Open the link: /#about"
+                aria-label="링크 열기: /#about"
             >
         
         
-            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
         
         </a>
     
@@ -128,13 +128,13 @@
             <div class="sidebar-profile">
                 <a
                     href="/#about"
-                    aria-label="Read more about the author"
+                    aria-label="저자에 대해 더 알아보기"
                 >
-                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
                 </a>
                 <h4 class="sidebar-profile-name">Kevin</h4>
                 
-                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+                    <h5 class="sidebar-profile-bio"><p>author.bio</p>
 </h5>
                 
             </div>
@@ -243,11 +243,11 @@
         <div class="post-meta">
     <time datetime="2020-01-10T08:24:11+09:00">
 	
-		    Jan 10, 2020
+		    2020/01/10
     	
     </time>
     
-        <span>in </span>
+        <span>카테고리 </span>
         
     <a class="category-link" href="/categories/%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%88%98%EC%A7%91/">데이터 수집</a>
 
@@ -261,7 +261,7 @@
     
     <div class="post-content markdown">
         <div class="main-content-wrap">
-            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경-구축"><span class="toc-text">테스트 환경 구축</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-설정-파일-추가하고-Fluentd-실행"><span class="toc-text">Fluentd 설정 파일 추가하고 Fluentd 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#테스트-데이터-전송하여-Fluentd-동작-확인"><span class="toc-text">테스트 데이터 전송하여 Fluentd 동작 확인</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Jmeter-설치-및-Test-Plan-설정"><span class="toc-text">Jmeter 설치 및 Test Plan 설정</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트"><span class="toc-text">테스트</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#부하-테스트"><span class="toc-text">부하 테스트</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-100"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 100</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-150"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 150</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-125"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 125</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-137"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 137</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-128"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 128</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#성능-테스트"><span class="toc-text">성능 테스트</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-결과"><span class="toc-text">테스트 결과</span></a></li></ol>
+            <h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경-구축"><span class="toc-text">테스트 환경 구축</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Fluentd-설정-파일-추가하고-Fluentd-실행"><span class="toc-text">Fluentd 설정 파일 추가하고 Fluentd 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#테스트-데이터-전송하여-Fluentd-동작-확인"><span class="toc-text">테스트 데이터 전송하여 Fluentd 동작 확인</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Jmeter-설치-및-Test-Plan-설정"><span class="toc-text">Jmeter 설치 및 Test Plan 설정</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트"><span class="toc-text">테스트</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#부하-테스트"><span class="toc-text">부하 테스트</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-100"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 100</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-150"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 150</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-125"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 125</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-137"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 137</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#테스트-케이스-Number-of-Thread-128"><span class="toc-text">테스트 케이스 : Number of Thread &#x3D; 128</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#성능-테스트"><span class="toc-text">성능 테스트</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-결과"><span class="toc-text">테스트 결과</span></a></li></ol>
 
 <p>HTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.</p>
 <ul>
@@ -455,7 +455,7 @@
     <div id="post-footer" class="post-footer main-content-wrap">
         
             <div class="post-footer-tags">
-                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                <span class="text-color-light text-small">태그</span><br/>
                 
     <a class="tag tag--primary tag--small t-link" href="/tags/Flunted/" rel="tag">Flunted</a> <a class="tag tag--primary tag--small t-link" href="/tags/HTTP-listener/" rel="tag">HTTP listener</a>
 
@@ -473,12 +473,12 @@
                     href="/2020/01/15/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B5%E1%86%BC-S3-%E1%84%8C%E1%85%A5%E1%84%8C%E1%85%A1%E1%86%BC-Newline-Character-n-%E1%84%80%E1%85%A1-%E1%84%91%E1%85%A9%E1%84%92%E1%85%A1%E1%86%B7%E1%84%83%E1%85%AC%E1%86%AB-%E1%84%83%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%90%E1%85%A5-%E1%84%8E%E1%85%A5%E1%84%85%E1%85%B5-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
 &#39;)가 포함된 데이터 처리 테스트"
-                    aria-label="PREVIOUS: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+                    aria-label="이전: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
 &#39;)가 포함된 데이터 처리 테스트"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
             </li>
             <li class="post-action">
@@ -488,10 +488,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
                     data-tooltip="Elasticsearch query DSL 기초 학습정리"
-                    aria-label="NEXT: Elasticsearch query DSL 기초 학습정리"
+                    aria-label="다음: Elasticsearch query DSL 기초 학습정리"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -502,7 +502,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="Share this post"
+                aria-label="이 포스트 공유하기"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -514,8 +514,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Facebook"
-                    aria-label="Share on Facebook"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -527,8 +527,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Twitter"
-                    aria-label="Share on Twitter"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -540,8 +540,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Google+"
-                    aria-label="Share on Google+"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -553,7 +553,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="Leave a comment"
+                        aria-label="댓글을 남겨주세요"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -562,7 +562,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -604,12 +604,12 @@
                     href="/2020/01/15/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B5%E1%86%BC-S3-%E1%84%8C%E1%85%A5%E1%84%8C%E1%85%A1%E1%86%BC-Newline-Character-n-%E1%84%80%E1%85%A1-%E1%84%91%E1%85%A9%E1%84%92%E1%85%A1%E1%86%B7%E1%84%83%E1%85%AC%E1%86%AB-%E1%84%83%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%90%E1%85%A5-%E1%84%8E%E1%85%A5%E1%84%85%E1%85%B5-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
 &#39;)가 포함된 데이터 처리 테스트"
-                    aria-label="PREVIOUS: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
+                    aria-label="이전: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
 &#39;)가 포함된 데이터 처리 테스트"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
             </li>
             <li class="post-action">
@@ -619,10 +619,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
                     data-tooltip="Elasticsearch query DSL 기초 학습정리"
-                    aria-label="NEXT: Elasticsearch query DSL 기초 학습정리"
+                    aria-label="다음: Elasticsearch query DSL 기초 학습정리"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -633,7 +633,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="Share this post"
+                aria-label="이 포스트 공유하기"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -645,8 +645,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Facebook"
-                    aria-label="Share on Facebook"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -658,8 +658,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Twitter"
-                    aria-label="Share on Twitter"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -671,8 +671,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Google+"
-                    aria-label="Share on Google+"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -684,7 +684,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="Leave a comment"
+                        aria-label="댓글을 남겨주세요"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -693,7 +693,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -715,9 +715,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                        aria-label="Share on Facebook"
+                        aria-label="Facebook에 공유하기"
                     >
-                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
                     </a>
                 </li>
             
@@ -728,9 +728,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                        aria-label="Share on Twitter"
+                        aria-label="Twitter에 공유하기"
                     >
-                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
                     </a>
                 </li>
             
@@ -741,9 +741,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                        aria-label="Share on Google+"
+                        aria-label="Google+에 공유하기"
                     >
-                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
                     </a>
                 </li>
             
@@ -766,18 +766,18 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
         
             <h4 id="about-card-name">Kevin</h4>
         
-            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+            <div id="about-card-bio"><p>author.bio</p>
 </div>
         
         
             <div id="about-card-job">
                 <i class="fa fa-briefcase"></i>
                 <br/>
-                <p>Developer, DE</p>
+                <p>author.job</p>
 
             </div>
         

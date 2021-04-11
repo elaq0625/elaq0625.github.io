@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
     
 <head>
     <meta charset="UTF-8">
@@ -20,7 +20,7 @@
 <meta property="og:url" content="http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/index.html">
 <meta property="og:site_name" content="Kevin의 블로그">
 <meta property="og:description" content="Metabase 공식문서를 찾아가며 운영 관련 학습 및 테스트한 내용을 정리한다.">
-<meta property="og:locale" content="en_US">
+<meta property="og:locale" content="ko_KR">
 <meta property="article:published_time" content="2019-12-23T01:16:35.000Z">
 <meta property="article:modified_time" content="2020-03-31T23:37:52.000Z">
 <meta property="article:author" content="Kevin">
@@ -87,11 +87,11 @@
             <a
                 class="header-right-picture "
                 href="#about"
-                aria-label="Open the link: /#about"
+                aria-label="링크 열기: /#about"
             >
         
         
-            <img class="header-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+            <img class="header-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
         
         </a>
     
@@ -110,13 +110,13 @@
             <div class="sidebar-profile">
                 <a
                     href="/#about"
-                    aria-label="Read more about the author"
+                    aria-label="저자에 대해 더 알아보기"
                 >
-                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+                    <img class="sidebar-profile-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
                 </a>
                 <h4 class="sidebar-profile-name">Kevin</h4>
                 
-                    <h5 class="sidebar-profile-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+                    <h5 class="sidebar-profile-bio"><p>author.bio</p>
 </h5>
                 
             </div>
@@ -225,11 +225,11 @@
         <div class="post-meta">
     <time datetime="2019-12-23T10:16:35+09:00">
 	
-		    Dec 23, 2019
+		    2019/12/23
     	
     </time>
     
-        <span>in </span>
+        <span>카테고리 </span>
         
     <a class="category-link" href="/categories/%EB%8C%80%EC%8B%9C%EB%B3%B4%EB%93%9C/">대시보드</a>
 
@@ -243,7 +243,7 @@
     
     <div class="post-content markdown">
         <div class="main-content-wrap">
-            <h1 id="table-of-contents">Table of Contents</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Metabase-실행-중지-제거-재시작"><span class="toc-text">Metabase 실행, 중지, 제거, 재시작</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Metabase-메타데이터-Host-OS에-마운트-하기"><span class="toc-text">Metabase 메타데이터 Host OS에 마운트 하기</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#컨테이너-내부-metabase-db-를-Host-OS에-마운트하여-Metabase-실행"><span class="toc-text">컨테이너 내부 &#x2F;metabase.db&#x2F;를 Host OS에 마운트하여 Metabase 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Host-OS에-메타데이터-파일-생성-확인"><span class="toc-text">Host OS에 메타데이터 파일 생성 확인</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase-접속하여-User-계정-생성-Dashboard-생성한-후-컨테이너-제거"><span class="toc-text">Metabase 접속하여 User 계정 생성, Dashboard 생성한 후 컨테이너 제거</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#컨테이너-내부-metabase-db-를-Host-OS-tmp-metabase-db-에-마운트하는-새로운-Metabase-실행"><span class="toc-text">컨테이너 내부 &#x2F;metabase.db&#x2F;를 Host OS &#x2F;tmp&#x2F;metabase.db&#x2F;에 마운트하는 새로운 Metabase 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#새로운-Metabase에서-기존-생성했던-User-계정-Dashboard-존재여부-확인"><span class="toc-text">새로운 Metabase에서 기존 생성했던 User 계정, Dashboard 존재여부 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Metabase에-MySQL-Database-등록하기"><span class="toc-text">Metabase에 MySQL Database 등록하기</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Metabase-메타데이터-마이그레이션-테스트-H2-→-MySQL"><span class="toc-text">Metabase 메타데이터 마이그레이션 테스트 : H2 → MySQL</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase-H2-실행하여-메타-데이터-저장하고-중지하기"><span class="toc-text">Metabase H2 실행하여 메타 데이터 저장하고 중지하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#메타데이터-마이그레이션-진행"><span class="toc-text">메타데이터 마이그레이션 진행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#마이그레이션된-메타데이터-확인"><span class="toc-text">마이그레이션된 메타데이터 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#버전-업그레이드-MySQL에-Metabase-메타데이터를-저장하는-방식에서-v0-29-3-→-v0-32-4-버전-업그레이드"><span class="toc-text">버전 업그레이드 : MySQL에 Metabase 메타데이터를 저장하는 방식에서 v0.29.3 → v0.32.4 버전 업그레이드</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-v5-6-실행-및-메타-데이터를-저장할-Database-생성"><span class="toc-text">MySQL v5.6 실행 및 메타 데이터를 저장할 Database 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL을-메타데이터-저장소로-사용하는-설정으로-Metabase-v0-29-3-실행"><span class="toc-text">MySQL을 메타데이터 저장소로 사용하는 설정으로 Metabase v0.29.3 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase에-접속하여-Metabase-버전-v0-29-3-확인-및-일반-User계정-Dashboard-생성"><span class="toc-text">Metabase에 접속하여 Metabase 버전(v0.29.3)  확인 및 일반 User계정, Dashboard 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase-v0-29-3-중지"><span class="toc-text">Metabase v0.29.3 중지</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL을-메타데이터-저장소로-사용하는-설정으로-Metabase-v0-32-4-실행"><span class="toc-text">MySQL을 메타데이터 저장소로 사용하는 설정으로 Metabase v0.32.4 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase에-접속하여-Metabase-버전-확인-v0-32-4-v0-29-3에서-생성한-일반-User계정-존재유무-Dashboard-존재유무-확인"><span class="toc-text">Metabase에 접속하여 Metabase 버전 확인 - v0.32.4, v0.29.3에서 생성한 일반 User계정 존재유무, Dashboard 존재유무 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#MySQL-8-x-버전-사용시-Metabase와-연동-오류-원인과-해결방법"><span class="toc-text">MySQL 8.x 버전 사용시 Metabase와 연동 오류 원인과 해결방법</span></a></li></ol>
+            <h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#테스트-환경"><span class="toc-text">테스트 환경</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Metabase-실행-중지-제거-재시작"><span class="toc-text">Metabase 실행, 중지, 제거, 재시작</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Metabase-메타데이터-Host-OS에-마운트-하기"><span class="toc-text">Metabase 메타데이터 Host OS에 마운트 하기</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#컨테이너-내부-metabase-db-를-Host-OS에-마운트하여-Metabase-실행"><span class="toc-text">컨테이너 내부 &#x2F;metabase.db&#x2F;를 Host OS에 마운트하여 Metabase 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Host-OS에-메타데이터-파일-생성-확인"><span class="toc-text">Host OS에 메타데이터 파일 생성 확인</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase-접속하여-User-계정-생성-Dashboard-생성한-후-컨테이너-제거"><span class="toc-text">Metabase 접속하여 User 계정 생성, Dashboard 생성한 후 컨테이너 제거</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#컨테이너-내부-metabase-db-를-Host-OS-tmp-metabase-db-에-마운트하는-새로운-Metabase-실행"><span class="toc-text">컨테이너 내부 &#x2F;metabase.db&#x2F;를 Host OS &#x2F;tmp&#x2F;metabase.db&#x2F;에 마운트하는 새로운 Metabase 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#새로운-Metabase에서-기존-생성했던-User-계정-Dashboard-존재여부-확인"><span class="toc-text">새로운 Metabase에서 기존 생성했던 User 계정, Dashboard 존재여부 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Metabase에-MySQL-Database-등록하기"><span class="toc-text">Metabase에 MySQL Database 등록하기</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Metabase-메타데이터-마이그레이션-테스트-H2-→-MySQL"><span class="toc-text">Metabase 메타데이터 마이그레이션 테스트 : H2 → MySQL</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase-H2-실행하여-메타-데이터-저장하고-중지하기"><span class="toc-text">Metabase H2 실행하여 메타 데이터 저장하고 중지하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#메타데이터-마이그레이션-진행"><span class="toc-text">메타데이터 마이그레이션 진행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#마이그레이션된-메타데이터-확인"><span class="toc-text">마이그레이션된 메타데이터 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#버전-업그레이드-MySQL에-Metabase-메타데이터를-저장하는-방식에서-v0-29-3-→-v0-32-4-버전-업그레이드"><span class="toc-text">버전 업그레이드 : MySQL에 Metabase 메타데이터를 저장하는 방식에서 v0.29.3 → v0.32.4 버전 업그레이드</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-v5-6-실행-및-메타-데이터를-저장할-Database-생성"><span class="toc-text">MySQL v5.6 실행 및 메타 데이터를 저장할 Database 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL을-메타데이터-저장소로-사용하는-설정으로-Metabase-v0-29-3-실행"><span class="toc-text">MySQL을 메타데이터 저장소로 사용하는 설정으로 Metabase v0.29.3 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase에-접속하여-Metabase-버전-v0-29-3-확인-및-일반-User계정-Dashboard-생성"><span class="toc-text">Metabase에 접속하여 Metabase 버전(v0.29.3)  확인 및 일반 User계정, Dashboard 생성</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase-v0-29-3-중지"><span class="toc-text">Metabase v0.29.3 중지</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL을-메타데이터-저장소로-사용하는-설정으로-Metabase-v0-32-4-실행"><span class="toc-text">MySQL을 메타데이터 저장소로 사용하는 설정으로 Metabase v0.32.4 실행</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Metabase에-접속하여-Metabase-버전-확인-v0-32-4-v0-29-3에서-생성한-일반-User계정-존재유무-Dashboard-존재유무-확인"><span class="toc-text">Metabase에 접속하여 Metabase 버전 확인 - v0.32.4, v0.29.3에서 생성한 일반 User계정 존재유무, Dashboard 존재유무 확인</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#MySQL-8-x-버전-사용시-Metabase와-연동-오류-원인과-해결방법"><span class="toc-text">MySQL 8.x 버전 사용시 Metabase와 연동 오류 원인과 해결방법</span></a></li></ol>
 
 <p>Metabase 공식문서를 찾아가며 운영 관련 학습 및 테스트한 내용을 정리한다.</p>
 <a id="more"></a>
@@ -535,7 +535,7 @@
     <div id="post-footer" class="post-footer main-content-wrap">
         
             <div class="post-footer-tags">
-                <span class="text-color-light text-small">TAGGED IN</span><br/>
+                <span class="text-color-light text-small">태그</span><br/>
                 
     <a class="tag tag--primary tag--small t-link" href="/tags/Docker/" rel="tag">Docker</a> <a class="tag tag--primary tag--small t-link" href="/tags/Metabase/" rel="tag">Metabase</a>
 
@@ -552,11 +552,11 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
                     data-tooltip="Elasticsearch query DSL 기초 학습정리"
-                    aria-label="PREVIOUS: Elasticsearch query DSL 기초 학습정리"
+                    aria-label="이전: Elasticsearch query DSL 기초 학습정리"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
             </li>
             <li class="post-action">
@@ -566,10 +566,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/11/27/Kinesis-Data-Stream-%E1%84%91%E1%85%A1%E1%84%90%E1%85%B5%E1%84%89%E1%85%A7%E1%86%AB%E1%84%8F%E1%85%B5-%E1%84%89%E1%85%A5%E1%86%AB%E1%84%90%E1%85%A2%E1%86%A8%E1%84%80%E1%85%AA-Shard-%E1%84%87%E1%85%AE%E1%86%AB%E1%84%89%E1%85%A1%E1%86%AB-%E1%84%83%E1%85%A9%E1%86%BC%E1%84%8C%E1%85%A1%E1%86%A8-%E1%84%8F%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%89%E1%85%B3%E1%84%87%E1%85%A7%E1%86%AF-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
-                    aria-label="NEXT: Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
+                    aria-label="다음: Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -580,7 +580,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="Share this post"
+                aria-label="이 포스트 공유하기"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -592,8 +592,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Facebook"
-                    aria-label="Share on Facebook"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -605,8 +605,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Twitter"
-                    aria-label="Share on Twitter"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -618,8 +618,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Google+"
-                    aria-label="Share on Google+"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -631,7 +631,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="Leave a comment"
+                        aria-label="댓글을 남겨주세요"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -640,7 +640,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -681,11 +681,11 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
                     data-tooltip="Elasticsearch query DSL 기초 학습정리"
-                    aria-label="PREVIOUS: Elasticsearch query DSL 기초 학습정리"
+                    aria-label="이전: Elasticsearch query DSL 기초 학습정리"
                 >
                     
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
-                        <span class="hide-xs hide-sm text-small icon-ml">PREVIOUS</span>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
             </li>
             <li class="post-action">
@@ -695,10 +695,10 @@
                     class="post-action-btn btn btn--default tooltip--top"
                     href="/2019/11/27/Kinesis-Data-Stream-%E1%84%91%E1%85%A1%E1%84%90%E1%85%B5%E1%84%89%E1%85%A7%E1%86%AB%E1%84%8F%E1%85%B5-%E1%84%89%E1%85%A5%E1%86%AB%E1%84%90%E1%85%A2%E1%86%A8%E1%84%80%E1%85%AA-Shard-%E1%84%87%E1%85%AE%E1%86%AB%E1%84%89%E1%85%A1%E1%86%AB-%E1%84%83%E1%85%A9%E1%86%BC%E1%84%8C%E1%85%A1%E1%86%A8-%E1%84%8F%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%89%E1%85%B3%E1%84%87%E1%85%A7%E1%86%AF-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
-                    aria-label="NEXT: Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
+                    aria-label="다음: Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
                 >
                     
-                        <span class="hide-xs hide-sm text-small icon-mr">NEXT</span>
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
                     </a>
             </li>
@@ -709,7 +709,7 @@
             <a
                 class="post-action-btn btn btn--default btn-open-shareoptions"
                 href="#btn-open-shareoptions"
-                aria-label="Share this post"
+                aria-label="이 포스트 공유하기"
             >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
@@ -721,8 +721,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Facebook"
-                    aria-label="Share on Facebook"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
                 >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
@@ -734,8 +734,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Twitter"
-                    aria-label="Share on Twitter"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
                 >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
@@ -747,8 +747,8 @@
                 <a
                     class="post-action-btn btn btn--default"
                     target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                    title="Share on Google+"
-                    aria-label="Share on Google+"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
                 >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
@@ -760,7 +760,7 @@
                     <a
                         class="post-action-btn btn btn--default"
                         href="#disqus_thread"
-                        aria-label="Leave a comment"
+                        aria-label="댓글을 남겨주세요"
                     >
                         <i class="fa fa-comment"></i>
                     </a>
@@ -769,7 +769,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="Table of Contents">
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -791,9 +791,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                        aria-label="Share on Facebook"
+                        aria-label="Facebook에 공유하기"
                     >
-                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
                     </a>
                 </li>
             
@@ -804,9 +804,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                        aria-label="Share on Twitter"
+                        aria-label="Twitter에 공유하기"
                     >
-                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
                     </a>
                 </li>
             
@@ -817,9 +817,9 @@
                         class="share-option-btn"
                         target="new"
                         href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/12/23/Metabase-%E1%84%8B%E1%85%AE%E1%86%AB%E1%84%8B%E1%85%A7%E1%86%BC-%E1%84%80%E1%85%AA%E1%86%AB%E1%84%85%E1%85%A7%E1%86%AB-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
-                        aria-label="Share on Google+"
+                        aria-label="Google+에 공유하기"
                     >
-                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
                     </a>
                 </li>
             
@@ -842,18 +842,18 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="Author&#39;s picture"/>
+            <img id="about-card-picture" src="/assets/images/beer.jpg" alt="저자 이미지"/>
         
             <h4 id="about-card-name">Kevin</h4>
         
-            <div id="about-card-bio"><p>Kevin, 이용훈<br>어릴 때부터 코딩에 흥미를 가지고 살아왔습니다. 새로운 기술도 열정적으로 받아들이며 더 좋은 개발을 위하여 학습하고 경험하고 노력하고 있습니다.</p>
+            <div id="about-card-bio"><p>author.bio</p>
 </div>
         
         
             <div id="about-card-job">
                 <i class="fa fa-briefcase"></i>
                 <br/>
-                <p>Developer, DE</p>
+                <p>author.job</p>
 
             </div>
         
