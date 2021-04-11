@@ -13,11 +13,11 @@
         <link rel="icon" href="http://elaq0625.github.io/assets/images/beer_favaicon.png">
     
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n\n직관적인(Naive) 히스토그램보다 이론상 2배(실제 측정시 1.53배) 빠른 퍼포먼스를 갖는 히스토그램 전략(알고리즘)에 대하여 정리한다.\n\n\nImage Histogram이미지 버퍼에 저장된 값들의 분포(개수)를 표시하는 방법이다.자세한 내용은 아래의 링크에서 확인한다.\n\nhttps://en.wikipedia.org/wiki/Image_histogram\n\n직관적인 히스토그램직관적인 히스토그램을 구하는 방법은 단순하다.이미지 버퍼에 순차적으로 접근하여 버퍼값을 해쉬 테이블에 카운팅하면 된다.\n예를 들어 8 Depth, 1 Channel 이미지에서 히스토그램을 구한다고 가정하자.아래 그림과 같은 이미지 버퍼를 2차원 배열이라 생각하면 (실제로는 1차원 배열 형태로 접근하는 것이 우수한 퍼포먼스를 내지만) 순차적으로 (0,0), (0, 1) … (N-1, M-1) 인덱스에 접근하고, 값을 해쉬 테이블에 카운팅하면 된다.    \n0 ~ 255 범위를 갖는 해쉬 테이블에 카운트된 값은 이미지 버퍼의 히스토그램이다.    \n빠른 히스토그램빠른 히스토그램은 8 Depth에 국한되어 이론상 2배 빠른 퍼포먼스를 보여주는 전략이다.C++의 자료 타입형 char의 배열과 short의 배열에 대한 메모리 접근 속도가 서로 유사 혹은 근접하다는 점을 이용한다.\n우선 unsigned char(8 Depth)로 저장된 이미지 버퍼에 unsigned short(16 Depth) 형태로 표현한다.\n\n    \n\n\n일반적인 방법과 동일하게 순차적으로 (0, 0), (0, 1) … (N/2 - 1, M/2 - 1) 인덱스에 접근하여 값을 16 Depth 해쉬 테이블에 카운팅한다.0 ~ 65535 범위를 갖는 해쉬 테이블에 이미지 버퍼에서 카운팅한 값이 저장된다.    \n위와 같은 해시 테이블에 저장된 값은 8 Depth 이미지의 히스토그램으로 사용할 수 없으므로 한번의 변환과정이 필요하다.0 ~ 65535 범위의 값을 가지는 해쉬 테이블에 접근하여 상위 8비트, 하위 8비트로 나누어 8 Depth 해쉬 테이블에 저장한다.    \n8 Depth 해쉬 테이블에 저장된 값은 이미지의 히스토그램이다.\n퍼포먼스에 관하여 정리하면 다음과 같다.\n\n이미지 버퍼에 접근하여 16 Depth 해쉬 테이블을 카운팅하는 과정에서 이론적으로는 일반적인 히스토그램 구하는 방법보다 1/2 시간을 소모한다.\n상위 비트, 하위 비트로 구분하여 8 Depth 해쉬 테이블을 카운팅하는 과정은 o(65535) = O(1)이다. N(Image Width), M(Image Height) 값이 클수록 이 과정에서 소모되는 시간의 영향을 줄어든다.\n\n8 Depth 3 Channel, 8 Depth 4 Channel 모두 위의 방법을 응용하여 일반적인 방법보다 빠른 히스토그램을 구현할 수 있다.\n\n이미지의 크기와 이미지의 분포에 따라 다르겠지만 본인이 실제 이미지로 테스트하였을 경우 평균 1.53배 빠른 퍼포먼스를 갖는다.\n\n","dateCreated":"2017-04-02T23:38:31+09:00","dateModified":"2020-03-16T23:58:37+09:00","datePublished":"2017-04-02T23:38:31+09:00","description":"\n\n직관적인(Naive) 히스토그램보다 이론상 2배(실제 측정시 1.53배) 빠른 퍼포먼스를 갖는 히스토그램 전략(알고리즘)에 대하여 정리한다.","headline":"Histogram Fast 알고리즘","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/","keywords":"histogram"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n\n직관적인(Naive) 히스토그램보다 이론상 2배(실제 측정시 1.53배) 빠른 퍼포먼스를 갖는 히스토그램 전략(알고리즘)에 대하여 정리한다.\n\n\nImage Histogram이미지 버퍼에 저장된 값들의 분포(개수)를 표시하는 방법이다.자세한 내용은 아래의 링크에서 확인한다.\n\nhttps://en.wikipedia.org/wiki/Image_histogram\n\n직관적인 히스토그램직관적인 히스토그램을 구하는 방법은 단순하다.이미지 버퍼에 순차적으로 접근하여 버퍼값을 해쉬 테이블에 카운팅하면 된다.\n예를 들어 8 Depth, 1 Channel 이미지에서 히스토그램을 구한다고 가정하자.아래 그림과 같은 이미지 버퍼를 2차원 배열이라 생각하면 (실제로는 1차원 배열 형태로 접근하는 것이 우수한 퍼포먼스를 내지만) 순차적으로 (0,0), (0, 1) … (N-1, M-1) 인덱스에 접근하고, 값을 해쉬 테이블에 카운팅하면 된다.    \n0 ~ 255 범위를 갖는 해쉬 테이블에 카운트된 값은 이미지 버퍼의 히스토그램이다.    \n빠른 히스토그램빠른 히스토그램은 8 Depth에 국한되어 이론상 2배 빠른 퍼포먼스를 보여주는 전략이다.C++의 자료 타입형 char의 배열과 short의 배열에 대한 메모리 접근 속도가 서로 유사 혹은 근접하다는 점을 이용한다.\n우선 unsigned char(8 Depth)로 저장된 이미지 버퍼에 unsigned short(16 Depth) 형태로 표현한다.\n\n    \n\n\n일반적인 방법과 동일하게 순차적으로 (0, 0), (0, 1) … (N/2 - 1, M/2 - 1) 인덱스에 접근하여 값을 16 Depth 해쉬 테이블에 카운팅한다.0 ~ 65535 범위를 갖는 해쉬 테이블에 이미지 버퍼에서 카운팅한 값이 저장된다.    \n위와 같은 해시 테이블에 저장된 값은 8 Depth 이미지의 히스토그램으로 사용할 수 없으므로 한번의 변환과정이 필요하다.0 ~ 65535 범위의 값을 가지는 해쉬 테이블에 접근하여 상위 8비트, 하위 8비트로 나누어 8 Depth 해쉬 테이블에 저장한다.    \n8 Depth 해쉬 테이블에 저장된 값은 이미지의 히스토그램이다.\n퍼포먼스에 관하여 정리하면 다음과 같다.\n\n이미지 버퍼에 접근하여 16 Depth 해쉬 테이블을 카운팅하는 과정에서 이론적으로는 일반적인 히스토그램 구하는 방법보다 1/2 시간을 소모한다.\n상위 비트, 하위 비트로 구분하여 8 Depth 해쉬 테이블을 카운팅하는 과정은 o(65535) = O(1)이다. N(Image Width), M(Image Height) 값이 클수록 이 과정에서 소모되는 시간의 영향을 줄어든다.\n\n8 Depth 3 Channel, 8 Depth 4 Channel 모두 위의 방법을 응용하여 일반적인 방법보다 빠른 히스토그램을 구현할 수 있다.\n\n이미지의 크기와 이미지의 분포에 따라 다르겠지만 본인이 실제 이미지로 테스트하였을 경우 평균 1.53배 빠른 퍼포먼스를 갖는다.\n\n","dateCreated":"2017-04-02T23:38:31+09:00","dateModified":"2020-03-16T23:58:37+09:00","datePublished":"2017-04-02T23:38:31+09:00","description":"\n\n직관적인(Naive) 히스토그램보다 이론상 2배(실제 측정시 1.53배) 빠른 퍼포먼스를 갖는 히스토그램 전략(알고리즘)에 대하여 정리한다.","headline":"Histogram Fast 알고리즘","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/","keywords":"histogram"}</script>
     <meta name="description" content="직관적인(Naive) 히스토그램보다 이론상 2배(실제 측정시 1.53배) 빠른 퍼포먼스를 갖는 히스토그램 전략(알고리즘)에 대하여 정리한다.">
 <meta property="og:type" content="blog">
 <meta property="og:title" content="Histogram Fast 알고리즘">
-<meta property="og:url" content="http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/index.html">
+<meta property="og:url" content="http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/index.html">
 <meta property="og:site_name" content="Kevin의 블로그">
 <meta property="og:description" content="직관적인(Naive) 히스토그램보다 이론상 2배(실제 측정시 1.53배) 빠른 퍼포먼스를 갖는 히스토그램 전략(알고리즘)에 대하여 정리한다.">
 <meta property="og:locale" content="en_US">
@@ -27,7 +27,7 @@
 <meta property="og:image" content="http://elaq0625.github.io/post_attachment/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/histogram_fast_hash_table.jpg">
 <meta property="og:image" content="http://elaq0625.github.io/post_attachment/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/histogram_fast_description.jpg">
 <meta property="article:published_time" content="2017-04-02T14:38:31.000Z">
-<meta property="article:modified_time" content="2020-03-16T14:58:37.558Z">
+<meta property="article:modified_time" content="2020-03-16T14:58:37.000Z">
 <meta property="article:author" content="Kevin">
 <meta property="article:tag" content="histogram">
 <meta name="twitter:card" content="summary">
@@ -302,7 +302,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    href="/2019/08/27/AWS-CLI-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
                     data-tooltip="AWS CLI 기초 학습 정리"
                     aria-label="PREVIOUS: AWS CLI 기초 학습 정리"
                 >
@@ -340,7 +340,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"
                     title="Share on Facebook"
                     aria-label="Share on Facebook"
                 >
@@ -353,7 +353,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"
                     title="Share on Twitter"
                     aria-label="Share on Twitter"
                 >
@@ -366,7 +366,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"
                     title="Share on Google+"
                     aria-label="Share on Google+"
                 >
@@ -428,7 +428,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2019/08/27/AWS-CLI-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5-%EC%A0%95%EB%A6%AC/"
+                    href="/2019/08/27/AWS-CLI-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8-%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5/"
                     data-tooltip="AWS CLI 기초 학습 정리"
                     aria-label="PREVIOUS: AWS CLI 기초 학습 정리"
                 >
@@ -466,7 +466,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"
                     title="Share on Facebook"
                     aria-label="Share on Facebook"
                 >
@@ -479,7 +479,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"
                     title="Share on Twitter"
                     aria-label="Share on Twitter"
                 >
@@ -492,7 +492,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"
                     title="Share on Google+"
                     aria-label="Share on Google+"
                 >
@@ -536,7 +536,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"
                         aria-label="Share on Facebook"
                     >
                         <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
@@ -549,7 +549,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"
+                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"
                         aria-label="Share on Twitter"
                     >
                         <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
@@ -562,7 +562,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"
+                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/"
                         aria-label="Share on Google+"
                     >
                         <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
@@ -635,9 +635,9 @@
     
         <script>
           var disqus_config = function() {
-            this.page.url = 'http://elaq0625.github.io/2017/04/02/Histogram-Fast-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/';
+            this.page.url = 'http://elaq0625.github.io/2017/04/02/Histogram-Fast-%E1%84%8B%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A9%E1%84%85%E1%85%B5%E1%84%8C%E1%85%B3%E1%86%B7/';
               
-            this.page.identifier = '2017/04/02/Histogram-Fast-알고리즘/';
+            this.page.identifier = '2017/04/02/Histogram-Fast-알고리즘/';
               
           };
           (function() {

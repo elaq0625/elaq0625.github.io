@@ -13,16 +13,16 @@
         <link rel="icon" href="http://elaq0625.github.io/assets/images/beer_favaicon.png">
     
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.\n\nAmazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.\n\n\n\n환경Amazon Elasticsearch\n버전 : 6.7\n인스턴스 유형 : t2.small.elasticsearch\n인스턴스 개수 : 2\n볼륨 크기 : 10 GB\n복구할 인덱스 : recovery_test_index\n\n복구 과정복구전 인덱스에 저장된 다큐먼트 개수 확인복구전 recovery_test_index에 저장된 다큐먼트가 9개 저장된 것을 확인했다.\n12345678910$ curl -XGET '[Elasticsearch_도메인명]/recovery_test_index/_count?pretty'&#123;  \"count\" : 9,  \"_shards\" : &#123;    \"total\" : 5,    \"successful\" : 5,    \"skipped\" : 0,    \"failed\" : 0  &#125;&#125;\n\n스냅샷 존재 여부 확인Amazon Elasticsearch의 스냅샷 정책은 다음과 같고, 현재 시점( 2019. 11. 5 )에서 복구 희망 시점(2019. 10. 29 )의 스냅샷으로 복구 가능하다는 것을 알 수 있다.\n\nAmazon Elastcisearch 스냅샷 정책모든 Amazon ES 도메인은 자동 스냅샷을 생성하지만 빈도는 다릅니다.\n\nElasticsearch 5.3 이상을 실행하는 도메인의 경우 Amazon ES는 시간별 자동 스냅샷을 생성하고 최대 336개의 스냅샷을 14일 동안 보관합니다.\nElasticsearch 5.1 이하를 실행하는 도메인의 경우 Amazon ES는 일별 자동 스냅샷을 생성하고(지정한 시간 동안) 최대 14개의 스냅샷을 30일 동안 보관합니다.\n\n\n\n\nAmazon Elasticsearch는 ‘리포지토리’ 단위로 스냅샷을 저장한다.자동 스냅샷 ‘리포지토리’를 확인하기 위하여 다음과 같은 명령으로 ‘리포지토리’를 확인한다.\n12$ curl -XGET '[Elasticsearch_도메인명]/_snapshot'&#123;\"cs-automated\":&#123;\"type\":\"s3\"&#125;&#125;\n\n“cs-automated” 리포지토리에 복구 희망 시점(2019. 10. 29 )의 스냅샷이 남아 있는지 확인한 결과 “2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51” 스냅샵이 남아 있었다.\n1234567891011121314151617181920212223242526272829303132333435363738394041$ curl -XGET '[Elasticsearch_도메인명]/_snapshot/cs-automated/_all?pretty'&#123;  \"snapshots\" : [ &#123;    \"snapshot\" : \"2019-10-22t01-47-54.328ccc95-18b0-455e-bf24-abeeeaf18eeb\",    \"uuid\" : \"LsMY9UfnTn-gR1V751JEQQ\",    \"version_id\" : 6070099,    \"version\" : \"6.7.0\",    \"indices\" : [ \".opendistro-alerting-alert-history-2019.06.20-000052\",... 중략 ...  &#125;, &#123;    \"snapshot\" : \"2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51\",    \"uuid\" : \"HyKrNLXCRdW3DPTMkcPdFg\",    \"version_id\" : 6070099,    \"version\" : \"6.7.0\",    \"indices\" : [ ... 중략 ... \"recovery_test_index\",  ... 중략 ... ],    \"include_global_state\" : true,    \"state\" : \"SUCCESS\",    \"start_time\" : \"2019-10-29T02:47:55.177Z\",    \"start_time_in_millis\" : 1572317275177,    \"end_time\" : \"2019-10-29T02:51:19.273Z\",    \"end_time_in_millis\" : 1572317479273,    \"duration_in_millis\" : 204096,    \"failures\" : [ ],    \"shards\" : &#123;      \"total\" : 968,      \"failed\" : 0,      \"successful\" : 968    &#125;  &#125;, &#123;... 중략 ...\n\n스냅샷으로 인덱스 복구복구 하려는 인덱스가 현재 시점에 존재하는 경우에는 충돌이 발생할 수 있다. 따라서 삭제하거나 명칭을 변경해야한다.현재 존재하는 “recovery_test_index” 인덱스를 삭제한다.\n12$ curl -XDELETE '[Elasticsearch_도메인명]/recovery_test_index'&#123;\"acknowledged\" : true&#125;%\n\n인덱스를 복구하기 위하여 복구 희망 시점의 스냅샵 ID를 알아야 한다.위의 “복구 가능 확인 여부”에서 확인한 스냅샵 ID는 “2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51” 이다.\n다음과 같은 명령으로 복구 희망 시점(2019. 10. 29) “recovery_test_index” 인덱스를 복구한다.\n12345### https://엔드포인트/_snapshot/리포지토리/스냅샷 ID/_restore### json : &#123;\"indics\": 인덱스명 &#125; $ curl -XPOST '[Elasticsearch_도메인명]/_snapshot/cs-automated/2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51/_restore' -d '&#123;\"indices\": \"recovery_test_index\"&#125;' -H 'Content-Type: application/json'&#123;\"accepted\":true&#125;%\n\n복구후 인덱스 저장된 다큐먼트 개수 확인복구된 recovery_test_index 인덱스에 248265개의 다큐먼트가 저장된 것을 확인했다.\n12345678910$ curl -XGET '[Elasticsearch_도메인명]/recovery_test_index/_count?pretty'&#123;  \"count\" : 248265,  \"_shards\" : &#123;    \"total\" : 5,    \"successful\" : 5,    \"skipped\" : 0,    \"failed\" : 0  &#125;&#125;\n\n참고자료\nAmazon Elasticsearch Service 인덱스 스냅샷 작업\n\n","dateCreated":"2019-11-08T21:20:14+09:00","dateModified":"2020-02-15T10:56:19+09:00","datePublished":"2019-11-08T21:20:14+09:00","description":"\n스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.\n\nAmazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.\n","headline":"Amazon Elasticsearch 인덱스 복구","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/","keywords":"Elasticsearch"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.\n\nAmazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.\n\n\n\n환경Amazon Elasticsearch\n버전 : 6.7\n인스턴스 유형 : t2.small.elasticsearch\n인스턴스 개수 : 2\n볼륨 크기 : 10 GB\n복구할 인덱스 : recovery_test_index\n\n복구 과정복구전 인덱스에 저장된 다큐먼트 개수 확인복구전 recovery_test_index에 저장된 다큐먼트가 9개 저장된 것을 확인했다.\n12345678910$ curl -XGET '[Elasticsearch_도메인명]/recovery_test_index/_count?pretty'&#123;  \"count\" : 9,  \"_shards\" : &#123;    \"total\" : 5,    \"successful\" : 5,    \"skipped\" : 0,    \"failed\" : 0  &#125;&#125;\n\n스냅샷 존재 여부 확인Amazon Elasticsearch의 스냅샷 정책은 다음과 같고, 현재 시점( 2019. 11. 5 )에서 복구 희망 시점(2019. 10. 29 )의 스냅샷으로 복구 가능하다는 것을 알 수 있다.\n\nAmazon Elastcisearch 스냅샷 정책모든 Amazon ES 도메인은 자동 스냅샷을 생성하지만 빈도는 다릅니다.\n\nElasticsearch 5.3 이상을 실행하는 도메인의 경우 Amazon ES는 시간별 자동 스냅샷을 생성하고 최대 336개의 스냅샷을 14일 동안 보관합니다.\nElasticsearch 5.1 이하를 실행하는 도메인의 경우 Amazon ES는 일별 자동 스냅샷을 생성하고(지정한 시간 동안) 최대 14개의 스냅샷을 30일 동안 보관합니다.\n\n\n\n\nAmazon Elasticsearch는 ‘리포지토리’ 단위로 스냅샷을 저장한다.자동 스냅샷 ‘리포지토리’를 확인하기 위하여 다음과 같은 명령으로 ‘리포지토리’를 확인한다.\n12$ curl -XGET '[Elasticsearch_도메인명]/_snapshot'&#123;\"cs-automated\":&#123;\"type\":\"s3\"&#125;&#125;\n\n“cs-automated” 리포지토리에 복구 희망 시점(2019. 10. 29 )의 스냅샷이 남아 있는지 확인한 결과 “2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51” 스냅샵이 남아 있었다.\n1234567891011121314151617181920212223242526272829303132333435363738394041$ curl -XGET '[Elasticsearch_도메인명]/_snapshot/cs-automated/_all?pretty'&#123;  \"snapshots\" : [ &#123;    \"snapshot\" : \"2019-10-22t01-47-54.328ccc95-18b0-455e-bf24-abeeeaf18eeb\",    \"uuid\" : \"LsMY9UfnTn-gR1V751JEQQ\",    \"version_id\" : 6070099,    \"version\" : \"6.7.0\",    \"indices\" : [ \".opendistro-alerting-alert-history-2019.06.20-000052\",... 중략 ...  &#125;, &#123;    \"snapshot\" : \"2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51\",    \"uuid\" : \"HyKrNLXCRdW3DPTMkcPdFg\",    \"version_id\" : 6070099,    \"version\" : \"6.7.0\",    \"indices\" : [ ... 중략 ... \"recovery_test_index\",  ... 중략 ... ],    \"include_global_state\" : true,    \"state\" : \"SUCCESS\",    \"start_time\" : \"2019-10-29T02:47:55.177Z\",    \"start_time_in_millis\" : 1572317275177,    \"end_time\" : \"2019-10-29T02:51:19.273Z\",    \"end_time_in_millis\" : 1572317479273,    \"duration_in_millis\" : 204096,    \"failures\" : [ ],    \"shards\" : &#123;      \"total\" : 968,      \"failed\" : 0,      \"successful\" : 968    &#125;  &#125;, &#123;... 중략 ...\n\n스냅샷으로 인덱스 복구복구 하려는 인덱스가 현재 시점에 존재하는 경우에는 충돌이 발생할 수 있다. 따라서 삭제하거나 명칭을 변경해야한다.현재 존재하는 “recovery_test_index” 인덱스를 삭제한다.\n12$ curl -XDELETE '[Elasticsearch_도메인명]/recovery_test_index'&#123;\"acknowledged\" : true&#125;%\n\n인덱스를 복구하기 위하여 복구 희망 시점의 스냅샵 ID를 알아야 한다.위의 “복구 가능 확인 여부”에서 확인한 스냅샵 ID는 “2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51” 이다.\n다음과 같은 명령으로 복구 희망 시점(2019. 10. 29) “recovery_test_index” 인덱스를 복구한다.\n12345### https://엔드포인트/_snapshot/리포지토리/스냅샷 ID/_restore### json : &#123;\"indics\": 인덱스명 &#125; $ curl -XPOST '[Elasticsearch_도메인명]/_snapshot/cs-automated/2019-10-29t02-47-55.820cba71-42d5-4d4d-ac3e-6cb058db9b51/_restore' -d '&#123;\"indices\": \"recovery_test_index\"&#125;' -H 'Content-Type: application/json'&#123;\"accepted\":true&#125;%\n\n복구후 인덱스 저장된 다큐먼트 개수 확인복구된 recovery_test_index 인덱스에 248265개의 다큐먼트가 저장된 것을 확인했다.\n12345678910$ curl -XGET '[Elasticsearch_도메인명]/recovery_test_index/_count?pretty'&#123;  \"count\" : 248265,  \"_shards\" : &#123;    \"total\" : 5,    \"successful\" : 5,    \"skipped\" : 0,    \"failed\" : 0  &#125;&#125;\n\n참고자료\nAmazon Elasticsearch Service 인덱스 스냅샷 작업\n\n","dateCreated":"2019-11-08T21:20:14+09:00","dateModified":"2020-02-15T10:56:19+09:00","datePublished":"2019-11-08T21:20:14+09:00","description":"\n스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.\n\nAmazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.\n","headline":"Amazon Elasticsearch 인덱스 복구","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/","keywords":"Elasticsearch"}</script>
     <meta name="description" content="스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.  Amazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.">
 <meta property="og:type" content="blog">
 <meta property="og:title" content="Amazon Elasticsearch 인덱스 복구">
-<meta property="og:url" content="http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/index.html">
+<meta property="og:url" content="http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/index.html">
 <meta property="og:site_name" content="Kevin의 블로그">
 <meta property="og:description" content="스냅샷으로 저장된 Amazone Elasticseaerch 인덱스 복구하는 과정을 정리한 문서이다.  Amazone Elasticsearch는 기본 설정으로 시간단위로 스냅샷을 저장한다.스냅샷이 저장되기 전에 생성되고 삭제된 인덱스는 복구할 수 없다.">
 <meta property="og:locale" content="en_US">
 <meta property="article:published_time" content="2019-11-08T12:20:14.000Z">
-<meta property="article:modified_time" content="2020-02-15T01:56:19.496Z">
+<meta property="article:modified_time" content="2020-02-15T01:56:19.000Z">
 <meta property="article:author" content="Kevin">
 <meta property="article:tag" content="Elasticsearch">
 <meta name="twitter:card" content="summary">
@@ -312,7 +312,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    href="/2019/11/27/Kinesis-Data-Stream-%E1%84%91%E1%85%A1%E1%84%90%E1%85%B5%E1%84%89%E1%85%A7%E1%86%AB%E1%84%8F%E1%85%B5-%E1%84%89%E1%85%A5%E1%86%AB%E1%84%90%E1%85%A2%E1%86%A8%E1%84%80%E1%85%AA-Shard-%E1%84%87%E1%85%AE%E1%86%AB%E1%84%89%E1%85%A1%E1%86%AB-%E1%84%83%E1%85%A9%E1%86%BC%E1%84%8C%E1%85%A1%E1%86%A8-%E1%84%8F%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%89%E1%85%B3%E1%84%87%E1%85%A7%E1%86%AF-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
                     aria-label="PREVIOUS: Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
                 >
@@ -326,7 +326,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2019/10/29/pytest-%ED%94%84%EB%A0%88%EC%9E%84%EC%9B%8C%ED%81%AC-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5/"
+                    href="/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
                     data-tooltip="pytest 프레임워크 기초 학습"
                     aria-label="NEXT: pytest 프레임워크 기초 학습"
                 >
@@ -353,7 +353,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                     title="Share on Facebook"
                     aria-label="Share on Facebook"
                 >
@@ -366,7 +366,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                     title="Share on Twitter"
                     aria-label="Share on Twitter"
                 >
@@ -379,7 +379,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                     title="Share on Google+"
                     aria-label="Share on Google+"
                 >
@@ -441,7 +441,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2019/11/27/Kinesis-Data-Stream-%ED%8C%8C%ED%8B%B0%EC%85%98%ED%82%A4-%EC%84%A0%ED%83%9D%EA%B3%BC-Shard-%EB%B6%84%EC%82%B0-%EB%8F%99%EC%9E%91-%EC%BC%80%EC%9D%B4%EC%8A%A4%EB%B3%84-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    href="/2019/11/27/Kinesis-Data-Stream-%E1%84%91%E1%85%A1%E1%84%90%E1%85%B5%E1%84%89%E1%85%A7%E1%86%AB%E1%84%8F%E1%85%B5-%E1%84%89%E1%85%A5%E1%86%AB%E1%84%90%E1%85%A2%E1%86%A8%E1%84%80%E1%85%AA-Shard-%E1%84%87%E1%85%AE%E1%86%AB%E1%84%89%E1%85%A1%E1%86%AB-%E1%84%83%E1%85%A9%E1%86%BC%E1%84%8C%E1%85%A1%E1%86%A8-%E1%84%8F%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%89%E1%85%B3%E1%84%87%E1%85%A7%E1%86%AF-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
                     aria-label="PREVIOUS: Kinesis Data Stream - 파티션키 선택과 Shard 분산 동작 케이스별 테스트"
                 >
@@ -455,7 +455,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2019/10/29/pytest-%ED%94%84%EB%A0%88%EC%9E%84%EC%9B%8C%ED%81%AC-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5/"
+                    href="/2019/10/29/pytest-%E1%84%91%E1%85%B3%E1%84%85%E1%85%A6%E1%84%8B%E1%85%B5%E1%86%B7%E1%84%8B%E1%85%AF%E1%84%8F%E1%85%B3-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8/"
                     data-tooltip="pytest 프레임워크 기초 학습"
                     aria-label="NEXT: pytest 프레임워크 기초 학습"
                 >
@@ -482,7 +482,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                     title="Share on Facebook"
                     aria-label="Share on Facebook"
                 >
@@ -495,7 +495,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                     title="Share on Twitter"
                     aria-label="Share on Twitter"
                 >
@@ -508,7 +508,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                     title="Share on Google+"
                     aria-label="Share on Google+"
                 >
@@ -552,7 +552,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                         aria-label="Share on Facebook"
                     >
                         <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
@@ -565,7 +565,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                         aria-label="Share on Twitter"
                     >
                         <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
@@ -578,7 +578,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/"
+                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/"
                         aria-label="Share on Google+"
                     >
                         <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
@@ -651,9 +651,9 @@
     
         <script>
           var disqus_config = function() {
-            this.page.url = 'http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8A%A4-%EB%B3%B5%EA%B5%AC/';
+            this.page.url = 'http://elaq0625.github.io/2019/11/08/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B3-%E1%84%87%E1%85%A9%E1%86%A8%E1%84%80%E1%85%AE/';
               
-            this.page.identifier = '2019/11/08/Amazon-Elasticsearch-인덱스-복구/';
+            this.page.identifier = '2019/11/08/Amazon-Elasticsearch-인덱스-복구/';
               
           };
           (function() {

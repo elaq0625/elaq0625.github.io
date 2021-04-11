@@ -13,11 +13,11 @@
         <link rel="icon" href="http://elaq0625.github.io/assets/images/beer_favaicon.png">
     
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n\nHTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.\n\nFluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트)\nFluentd Http Input Plugin을 사용한 HTTP Listener의 초당 처리량 확인 (성능 테스트)\n\n\n\n\n유의사항이 테스트는 Fluentd에서 지원하는 HTTP input Plugin의 기본적인 동작 성능을 확인하기 위한 목적으로 진행된 것이다. 하나의 머신에서 Data Sender와 Fluentd 환경이 모두 구성되고 테스트용으로 작은 테스트 데이터를 보내고 저장하는 방식으로 확인한 것이기 때문에 절대로 실제 프로덕션의 다양한 환경에서의 성능에 대한 기준지표로 사용하지 않도록 주의해야한다.\n\n테스트 환경\nOS : macOS Catalina v10.15.2\nCPU 3.5GHz, quad core Intel i5\nMemory 16GB 2400 MHz DDR4\nFluentd : v1.8.0\nJmeter : v5.1\n\n테스트 환경 구축테스트를 위하여 다음과 같은 구조를 갖는 디렉터리를 구성한다.\n123/http_listener_fluentd_test├── fluentd.conf ### fluentd 설정파일└── /output ### fluentd 출력 디렉터리\n\nFluentd 설정 파일 추가하고 Fluentd 실행테스트를 위한 Fluentd 중요 동작은 다음과 같다.\n\nhttp 플러그인을 Input 플러그인으로 json 데이터를 입력 받는다.\nInput 플러그인으로 입력 받은 데이터를 파일로 저장한다.\n\nFluentd 중요 동작과 몇 가지 디테일을 추가하여 다음과 같은 Fluentd 설정 파일을 생성한다. 설정 파일 내용중 {프로젝트 디렉터리 경로} 에는 절대 경로를 추가해야한다.\n12345678910111213141516171819202122232425&lt;source&gt;    @type http    port 9880    bind 0.0.0.0    tag http_listener_test    &lt;parse&gt;        @type json    &lt;/parse&gt;&lt;/source&gt;&lt;match http_listener*&gt;    @type file    path &#123;프로젝트 디렉터리 경로&#125;/output/$&#123;tag&#125;_%Y-%m-%d    add_path_suffix true    path_suffix \".log\"    append true    &lt;buffer tag, time&gt;        flush_mode interval        flush_interval 10s    &lt;/buffer&gt;    &lt;format&gt;        @type out_file        output_tag false        output_time true    &lt;/format&gt;&lt;/match&gt;\n\n설정 파일의 플러그인에 대한 자세한 설명은 아래의 Fluentd 공식 문서를 확인한다.\n\nFluentd - Input Plugins : http\nFluentd - Output Plugins : file\n\n다음과 같은 명령으로 Fluentd를 실행한다.\n12$ fluentd -c fluentd.conf -o fluentd.log`\n\n테스트 데이터 전송하여 Fluentd 동작 확인Fluentd가 동작 확인을 위하여 다음과 같은 파일을 생성한다.\n12345678&#123;  \"board_id\": 10,  \"playtime\": 5,  \"minimum_play\": \"Y\",  \"timestamp\": \"2019-11-12T10:00:01Z\",  \"user_id\": 1,  \"interest\": 100&#125;\n다음과 같은 명령으로 앞서 생성한 test.json 데이터를 Fluentd로 전송한다.\n1$ curl -s -H \"Content-Type: application/x-ndjson\" -XPOST http://localhost:9880/http_listener_test --data-binary @test.json\n\nFluentd의 buffer flush interval을 고려하여 1분뒤에 ./http_listener_fluentd_test/output 에 생성된 파일을 확인한다.테스트에서는 http_listener_test_2020-01-13.log 파일이 생성된 것을 확인했으며 파일 내용은 다음과 같다.\n12020-01-13T17:52:09+09:00\t&#123;\"board_id\":10,\"playtime\":5,\"minimum_play\":\"Y\",\"timestamp\":\"2019-11-12T10:00:01Z\",\"user_id\":1,\"interest\":100&#125;\nJmeter 설치 및 Test Plan 설정다음 링크에서 Jmeter를 설치하고 사용법을 확인하면 된다.\n\nhttps://qjadud22.tistory.com/35\n\n2020.1.13 기준 Jmeter 공식 홈페이지에는 Jmeter 5.2 다운로드 링크만 남아있어, 다음과 같이 Jmeter 5.1 다운로드 관련 내용을 남긴다.\n\nhttps://archive.apache.org/dist/jmeter/binaries/ 에서 apache-jmeter-5.1.zip(2019-02-18 19:42, 57M) 검색후 다운로드\n\nJmeter를 실행하고 다음과 같은 Test Plan 구조를 구성한다.\n\nTest Plan\nThread Group\nHTTP Request\nSummary Report\n\n\n\n\n\nThread Group 설정에서 다음과 같은 설정값을 입력한다.\n\nRamp-up period (seconds) : 0\nLoop count : 100\n\nHTTP Request에는 다음과 같은 데이터를 입력한다. 한번의 request에 하나의 데이터가 전송된다.\n\nMethod : POST\nPath : http://localhost:9880/http_listener_test\nBody Data : {“board_id”:10,”playtime”:5,”minimum_play”:”Y”,”timestamp”:”2019-11-12T10:00:01Z”,”user_id”:1,”interest”:100}\n\n테스트부하 테스트부하 테스트는 “동시 전송하는 User 수(Number of Thread)”를 변경하며 진행하고 이 내용은 테스트 케이스로 구분하여 정리한다.\n각각의 테스트 케이스는 동일한 조건으로 3회 실행하고 한 번이라도 오류가 발생하면 해당 케이스는 오류가 발생한 것으로 간주한다.\n테스트 케이스 : Number of Thread = 1003회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0%\n    \n        \n    \n    2회차 실행 결과 : 오류 0%\n    \n        \n    \n    3회차 실행 결과 : 오류 0%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1503회 실행, 3회 오류 발생 (Error : 1.33%, 1.49%, 1.29%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 1.33%\n    \n        \n    \n    2회차 실행 결과 : 오류 1.49%\n    \n        \n    \n    3회차 실행 결과 : 오류 1.29%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1253회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0%\n    \n        \n    \n    2회차 실행 결과 : 오류 0%\n    \n        \n    \n    3회차 실행 결과 : 오류 0%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1373회 실행, 3회 오류 발생 (Error : 0.37%, 0.52%, 0.49%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0.37%\n    \n        \n    \n    2회차 실행 결과 : 오류 0.52%\n    \n        \n    \n    3회차 실행 결과 : 오류 0.49%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1283회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0%\n    \n        \n    \n    2회차 실행 결과 : 오류 0%\n    \n        \n    \n    3회차 실행 결과 : 오류 0%\n    \n        \n    \n\n\n성능 테스트성능 테스트는 부하 테스트에서 오류율 0%를 만족하고, Number of Thread 값이 가장 큰 케이스(Number of Thread = 128)로 진행한다.성능 테스트는 5회 실행하고 Throughput 값, Received 값의 평균을 구한다.5회 실행한 결과의 평균은 Throughput : 3528.82 , Received : 303.256 이다.\n\n    &nbsp;&nbsp;자세히 보기\n    1 ~ 3 회차는 부하테스트 - 테스트 케이스 Number of Thread = 128을 참고 한다.\n    4회차 실행결과 : Throughput - 3662.4, Received - 314.74\n    \n        \n    \n    5회차 실행결과 : Throughput - 3548.7, Received - 304.96\n    \n        \n    \n    5회의 평균을 구하면 다음과 같다.\n    Throughput : 3528.82 \n    (3249.6 + 3564.5 + 3618.9 + 3662.4 + 3548.7) / 5 \n    Received : 303.256 \n    (279.26 + 306.32 + 311.00 + 314.74 + 304.96) / 5 \n\n\n테스트 결과테스트 결과를 정리하면 다음과 같다.\n\n하나의 머신에서 Jmeter를 사용하여 Fluentd HTTP Listener(Http input plugin사용)에 데이터를 전송했을 때, Fluentd쪽에서 오류없이 데이터를 받는 기준으로 3528.82개/초, 303.256KB/초의 데이터를 받아 파일로 저장할 수 있었다.\n\n","dateCreated":"2020-01-10T08:24:11+09:00","dateModified":"2020-02-17T16:58:44+09:00","datePublished":"2020-01-10T08:24:11+09:00","description":"\n\nHTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.\n\nFluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트)\nFluentd Http Input Plugin을 사용한 HTTP Listener의 초당 처리량 확인 (성능 테스트)\n","headline":"Fluentd - Http Input Plugin 부하 및 성능 테스트","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/","keywords":"Flunted, HTTP listener"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg"},"articleBody":"\n\nHTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.\n\nFluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트)\nFluentd Http Input Plugin을 사용한 HTTP Listener의 초당 처리량 확인 (성능 테스트)\n\n\n\n\n유의사항이 테스트는 Fluentd에서 지원하는 HTTP input Plugin의 기본적인 동작 성능을 확인하기 위한 목적으로 진행된 것이다. 하나의 머신에서 Data Sender와 Fluentd 환경이 모두 구성되고 테스트용으로 작은 테스트 데이터를 보내고 저장하는 방식으로 확인한 것이기 때문에 절대로 실제 프로덕션의 다양한 환경에서의 성능에 대한 기준지표로 사용하지 않도록 주의해야한다.\n\n테스트 환경\nOS : macOS Catalina v10.15.2\nCPU 3.5GHz, quad core Intel i5\nMemory 16GB 2400 MHz DDR4\nFluentd : v1.8.0\nJmeter : v5.1\n\n테스트 환경 구축테스트를 위하여 다음과 같은 구조를 갖는 디렉터리를 구성한다.\n123/http_listener_fluentd_test├── fluentd.conf ### fluentd 설정파일└── /output ### fluentd 출력 디렉터리\n\nFluentd 설정 파일 추가하고 Fluentd 실행테스트를 위한 Fluentd 중요 동작은 다음과 같다.\n\nhttp 플러그인을 Input 플러그인으로 json 데이터를 입력 받는다.\nInput 플러그인으로 입력 받은 데이터를 파일로 저장한다.\n\nFluentd 중요 동작과 몇 가지 디테일을 추가하여 다음과 같은 Fluentd 설정 파일을 생성한다. 설정 파일 내용중 {프로젝트 디렉터리 경로} 에는 절대 경로를 추가해야한다.\n12345678910111213141516171819202122232425&lt;source&gt;    @type http    port 9880    bind 0.0.0.0    tag http_listener_test    &lt;parse&gt;        @type json    &lt;/parse&gt;&lt;/source&gt;&lt;match http_listener*&gt;    @type file    path &#123;프로젝트 디렉터리 경로&#125;/output/$&#123;tag&#125;_%Y-%m-%d    add_path_suffix true    path_suffix \".log\"    append true    &lt;buffer tag, time&gt;        flush_mode interval        flush_interval 10s    &lt;/buffer&gt;    &lt;format&gt;        @type out_file        output_tag false        output_time true    &lt;/format&gt;&lt;/match&gt;\n\n설정 파일의 플러그인에 대한 자세한 설명은 아래의 Fluentd 공식 문서를 확인한다.\n\nFluentd - Input Plugins : http\nFluentd - Output Plugins : file\n\n다음과 같은 명령으로 Fluentd를 실행한다.\n12$ fluentd -c fluentd.conf -o fluentd.log`\n\n테스트 데이터 전송하여 Fluentd 동작 확인Fluentd가 동작 확인을 위하여 다음과 같은 파일을 생성한다.\n12345678&#123;  \"board_id\": 10,  \"playtime\": 5,  \"minimum_play\": \"Y\",  \"timestamp\": \"2019-11-12T10:00:01Z\",  \"user_id\": 1,  \"interest\": 100&#125;\n다음과 같은 명령으로 앞서 생성한 test.json 데이터를 Fluentd로 전송한다.\n1$ curl -s -H \"Content-Type: application/x-ndjson\" -XPOST http://localhost:9880/http_listener_test --data-binary @test.json\n\nFluentd의 buffer flush interval을 고려하여 1분뒤에 ./http_listener_fluentd_test/output 에 생성된 파일을 확인한다.테스트에서는 http_listener_test_2020-01-13.log 파일이 생성된 것을 확인했으며 파일 내용은 다음과 같다.\n12020-01-13T17:52:09+09:00\t&#123;\"board_id\":10,\"playtime\":5,\"minimum_play\":\"Y\",\"timestamp\":\"2019-11-12T10:00:01Z\",\"user_id\":1,\"interest\":100&#125;\nJmeter 설치 및 Test Plan 설정다음 링크에서 Jmeter를 설치하고 사용법을 확인하면 된다.\n\nhttps://qjadud22.tistory.com/35\n\n2020.1.13 기준 Jmeter 공식 홈페이지에는 Jmeter 5.2 다운로드 링크만 남아있어, 다음과 같이 Jmeter 5.1 다운로드 관련 내용을 남긴다.\n\nhttps://archive.apache.org/dist/jmeter/binaries/ 에서 apache-jmeter-5.1.zip(2019-02-18 19:42, 57M) 검색후 다운로드\n\nJmeter를 실행하고 다음과 같은 Test Plan 구조를 구성한다.\n\nTest Plan\nThread Group\nHTTP Request\nSummary Report\n\n\n\n\n\nThread Group 설정에서 다음과 같은 설정값을 입력한다.\n\nRamp-up period (seconds) : 0\nLoop count : 100\n\nHTTP Request에는 다음과 같은 데이터를 입력한다. 한번의 request에 하나의 데이터가 전송된다.\n\nMethod : POST\nPath : http://localhost:9880/http_listener_test\nBody Data : {“board_id”:10,”playtime”:5,”minimum_play”:”Y”,”timestamp”:”2019-11-12T10:00:01Z”,”user_id”:1,”interest”:100}\n\n테스트부하 테스트부하 테스트는 “동시 전송하는 User 수(Number of Thread)”를 변경하며 진행하고 이 내용은 테스트 케이스로 구분하여 정리한다.\n각각의 테스트 케이스는 동일한 조건으로 3회 실행하고 한 번이라도 오류가 발생하면 해당 케이스는 오류가 발생한 것으로 간주한다.\n테스트 케이스 : Number of Thread = 1003회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0%\n    \n        \n    \n    2회차 실행 결과 : 오류 0%\n    \n        \n    \n    3회차 실행 결과 : 오류 0%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1503회 실행, 3회 오류 발생 (Error : 1.33%, 1.49%, 1.29%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 1.33%\n    \n        \n    \n    2회차 실행 결과 : 오류 1.49%\n    \n        \n    \n    3회차 실행 결과 : 오류 1.29%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1253회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0%\n    \n        \n    \n    2회차 실행 결과 : 오류 0%\n    \n        \n    \n    3회차 실행 결과 : 오류 0%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1373회 실행, 3회 오류 발생 (Error : 0.37%, 0.52%, 0.49%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0.37%\n    \n        \n    \n    2회차 실행 결과 : 오류 0.52%\n    \n        \n    \n    3회차 실행 결과 : 오류 0.49%\n    \n        \n    \n\n\n테스트 케이스 : Number of Thread = 1283회 실행, 0회 오류 발생 (Error : 0%, 0%, 0%)\n\n    &nbsp;&nbsp;자세히 보기\n    1회차 실행 결과 : 오류 0%\n    \n        \n    \n    2회차 실행 결과 : 오류 0%\n    \n        \n    \n    3회차 실행 결과 : 오류 0%\n    \n        \n    \n\n\n성능 테스트성능 테스트는 부하 테스트에서 오류율 0%를 만족하고, Number of Thread 값이 가장 큰 케이스(Number of Thread = 128)로 진행한다.성능 테스트는 5회 실행하고 Throughput 값, Received 값의 평균을 구한다.5회 실행한 결과의 평균은 Throughput : 3528.82 , Received : 303.256 이다.\n\n    &nbsp;&nbsp;자세히 보기\n    1 ~ 3 회차는 부하테스트 - 테스트 케이스 Number of Thread = 128을 참고 한다.\n    4회차 실행결과 : Throughput - 3662.4, Received - 314.74\n    \n        \n    \n    5회차 실행결과 : Throughput - 3548.7, Received - 304.96\n    \n        \n    \n    5회의 평균을 구하면 다음과 같다.\n    Throughput : 3528.82 \n    (3249.6 + 3564.5 + 3618.9 + 3662.4 + 3548.7) / 5 \n    Received : 303.256 \n    (279.26 + 306.32 + 311.00 + 314.74 + 304.96) / 5 \n\n\n테스트 결과테스트 결과를 정리하면 다음과 같다.\n\n하나의 머신에서 Jmeter를 사용하여 Fluentd HTTP Listener(Http input plugin사용)에 데이터를 전송했을 때, Fluentd쪽에서 오류없이 데이터를 받는 기준으로 3528.82개/초, 303.256KB/초의 데이터를 받아 파일로 저장할 수 있었다.\n\n","dateCreated":"2020-01-10T08:24:11+09:00","dateModified":"2020-02-17T16:58:44+09:00","datePublished":"2020-01-10T08:24:11+09:00","description":"\n\nHTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.\n\nFluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트)\nFluentd Http Input Plugin을 사용한 HTTP Listener의 초당 처리량 확인 (성능 테스트)\n","headline":"Fluentd - Http Input Plugin 부하 및 성능 테스트","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"},"publisher":{"@type":"Organization","name":"Kevin","sameAs":["https://github.com/elaq0625/","mailto:elaq0625@gmail.com"],"image":"beer.jpg","logo":{"@type":"ImageObject","url":"beer.jpg"}},"url":"http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/","keywords":"Flunted, HTTP listener"}</script>
     <meta name="description" content="HTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.  Fluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트) Fluentd Htt">
 <meta property="og:type" content="blog">
 <meta property="og:title" content="Fluentd - Http Input Plugin 부하 및 성능 테스트">
-<meta property="og:url" content="http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/index.html">
+<meta property="og:url" content="http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/index.html">
 <meta property="og:site_name" content="Kevin의 블로그">
 <meta property="og:description" content="HTTP Data Listener 기능을 Fluentd의 Http Input Plugin을 사용하여 구성하고 테스트한 내용을 정리한다. 테스트로 확인한 내용은 다음과 같다.  Fluentd Http Input Plugin을 사용한 HTTP Listener가 오류없이 얼마나 많은 유저의 요청을 처리할 수 있는 지 확인 (부하 테스트) Fluentd Htt">
 <meta property="og:locale" content="en_US">
@@ -39,7 +39,7 @@
 <meta property="og:image" content="http://elaq0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=128__4.png">
 <meta property="og:image" content="http://elaq0625.github.io/post_attachment/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/Number_of_Thread=128__5.png">
 <meta property="article:published_time" content="2020-01-09T23:24:11.000Z">
-<meta property="article:modified_time" content="2020-02-17T07:58:44.292Z">
+<meta property="article:modified_time" content="2020-02-17T07:58:44.000Z">
 <meta property="article:author" content="Kevin">
 <meta property="article:tag" content="Flunted">
 <meta property="article:tag" content="HTTP listener">
@@ -470,7 +470,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2020/01/15/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8B%B1-S3-%EC%A0%80%EC%9E%A5-Newline-Character-n-%EA%B0%80-%ED%8F%AC%ED%95%A8%EB%90%9C-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%B2%98%EB%A6%AC-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    href="/2020/01/15/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B5%E1%86%BC-S3-%E1%84%8C%E1%85%A5%E1%84%8C%E1%85%A1%E1%86%BC-Newline-Character-n-%E1%84%80%E1%85%A1-%E1%84%91%E1%85%A9%E1%84%92%E1%85%A1%E1%86%B7%E1%84%83%E1%85%AC%E1%86%AB-%E1%84%83%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%90%E1%85%A5-%E1%84%8E%E1%85%A5%E1%84%85%E1%85%B5-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
 &#39;)가 포함된 데이터 처리 테스트"
                     aria-label="PREVIOUS: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
@@ -486,7 +486,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2020/01/03/Elasticsearch-Query-DSL-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5%EC%A0%95%EB%A6%AC-0/"
+                    href="/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
                     data-tooltip="Elasticsearch query DSL 기초 학습정리"
                     aria-label="NEXT: Elasticsearch query DSL 기초 학습정리"
                 >
@@ -513,7 +513,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     title="Share on Facebook"
                     aria-label="Share on Facebook"
                 >
@@ -526,7 +526,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     title="Share on Twitter"
                     aria-label="Share on Twitter"
                 >
@@ -539,7 +539,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     title="Share on Google+"
                     aria-label="Share on Google+"
                 >
@@ -601,7 +601,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2020/01/15/Amazon-Elasticsearch-%EC%9D%B8%EB%8D%B1%EC%8B%B1-S3-%EC%A0%80%EC%9E%A5-Newline-Character-n-%EA%B0%80-%ED%8F%AC%ED%95%A8%EB%90%9C-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%B2%98%EB%A6%AC-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    href="/2020/01/15/Amazon-Elasticsearch-%E1%84%8B%E1%85%B5%E1%86%AB%E1%84%83%E1%85%A6%E1%86%A8%E1%84%89%E1%85%B5%E1%86%BC-S3-%E1%84%8C%E1%85%A5%E1%84%8C%E1%85%A1%E1%86%BC-Newline-Character-n-%E1%84%80%E1%85%A1-%E1%84%91%E1%85%A9%E1%84%92%E1%85%A1%E1%86%B7%E1%84%83%E1%85%AC%E1%86%AB-%E1%84%83%E1%85%A6%E1%84%8B%E1%85%B5%E1%84%90%E1%85%A5-%E1%84%8E%E1%85%A5%E1%84%85%E1%85%B5-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     data-tooltip="Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
 &#39;)가 포함된 데이터 처리 테스트"
                     aria-label="PREVIOUS: Amazon Elasticsearch 인덱싱, S3 저장 - Newline Character(&#39;
@@ -617,7 +617,7 @@
                     
                 <a
                     class="post-action-btn btn btn--default tooltip--top"
-                    href="/2020/01/03/Elasticsearch-Query-DSL-%EA%B8%B0%EC%B4%88-%ED%95%99%EC%8A%B5%EC%A0%95%EB%A6%AC-0/"
+                    href="/2020/01/03/Elasticsearch-Query-DSL-%E1%84%80%E1%85%B5%E1%84%8E%E1%85%A9-%E1%84%92%E1%85%A1%E1%86%A8%E1%84%89%E1%85%B3%E1%86%B8%E1%84%8C%E1%85%A5%E1%86%BC%E1%84%85%E1%85%B5-0/"
                     data-tooltip="Elasticsearch query DSL 기초 학습정리"
                     aria-label="NEXT: Elasticsearch query DSL 기초 학습정리"
                 >
@@ -644,7 +644,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     title="Share on Facebook"
                     aria-label="Share on Facebook"
                 >
@@ -657,7 +657,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    target="new" href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     title="Share on Twitter"
                     aria-label="Share on Twitter"
                 >
@@ -670,7 +670,7 @@
             <li class="post-action hide-xs">
                 <a
                     class="post-action-btn btn btn--default"
-                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                    target="new" href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                     title="Share on Google+"
                     aria-label="Share on Google+"
                 >
@@ -714,7 +714,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                        href="https://www.facebook.com/sharer/sharer.php?u=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                         aria-label="Share on Facebook"
                     >
                         <i class="fab fa-facebook" aria-hidden="true"></i><span>Share on Facebook</span>
@@ -727,7 +727,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                        href="https://twitter.com/intent/tweet?text=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                         aria-label="Share on Twitter"
                     >
                         <i class="fab fa-twitter" aria-hidden="true"></i><span>Share on Twitter</span>
@@ -740,7 +740,7 @@
                     <a
                         class="share-option-btn"
                         target="new"
-                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/"
+                        href="https://plus.google.com/share?url=http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/"
                         aria-label="Share on Google+"
                     >
                         <i class="fab fa-google-plus" aria-hidden="true"></i><span>Share on Google+</span>
@@ -813,9 +813,9 @@
     
         <script>
           var disqus_config = function() {
-            this.page.url = 'http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%EB%B6%80%ED%95%98-%EB%B0%8F-%EC%84%B1%EB%8A%A5-%ED%85%8C%EC%8A%A4%ED%8A%B8/';
+            this.page.url = 'http://elaq0625.github.io/2020/01/10/Fluentd-Http-Input-Plugin-%E1%84%87%E1%85%AE%E1%84%92%E1%85%A1-%E1%84%86%E1%85%B5%E1%86%BE-%E1%84%89%E1%85%A5%E1%86%BC%E1%84%82%E1%85%B3%E1%86%BC-%E1%84%90%E1%85%A6%E1%84%89%E1%85%B3%E1%84%90%E1%85%B3/';
               
-            this.page.identifier = '2020/01/10/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/';
+            this.page.identifier = '2020/01/10/Fluentd-Http-Input-Plugin-부하-및-성능-테스트/';
               
           };
           (function() {
