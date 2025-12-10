@@ -1,0 +1,26 @@
+{
+  "resume": [
+    {
+      "filename": "resume-backend.md",
+      "path": "/documents/resume-backend.md"
+    }
+  ],
+  "project-review": [
+    {
+      "filename": "project-review-2025-12-09-practice1.md",
+      "path": "/documents/project-review-2025-12-09-practice1.md"
+    }
+  ],
+  "posting": [
+    {
+      "filename": "posting-2025-12-09-practice1.md",
+      "path": "/documents/posting-2025-12-09-practice1.md"
+    }
+  ],
+  "home": [
+    {
+      "filename": "home-home.md",
+      "path": "/documents/home-home.md"
+    }
+  ]
+}
