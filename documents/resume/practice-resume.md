@@ -1,3 +1,0 @@
-# Just Practice Resume
-
-## Hello
