@@ -1,11 +1,9 @@
-<!-- 
 ---
 layout: default
 title: "Hello, Yonghoon's pages"
 kind: "home"
 published_at: "2025-12-10"
 --- 
--->
 
 ## Hello, Yonghoon's pages
 
