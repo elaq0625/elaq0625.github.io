@@ -1,7 +1,6 @@
 ---
-layout: default
 title: "Hello, Yonghoon's pages"
-kind: "home"
+category: "home"
 published_at: "2025-12-10"
 --- 
 

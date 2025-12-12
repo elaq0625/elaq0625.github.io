@@ -1,7 +1,6 @@
 ---
-layout: default
 title: "LeeYongHoon Backend Resume"
-kind: "resume"
+category: "resume"
 published_at: "2025-12-10"
 ---
 

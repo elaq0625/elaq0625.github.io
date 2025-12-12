@@ -1,8 +1,7 @@
 ---
-layout: default
 title: "Notification Service 구축 (1)"
-kind: "posting"
-labels: ["bullmarketlabs", "notification"]
+category: "posting"
+tags: ["bullmarketlabs", "notification"]
 published_at: "2025-09-10"
 ---
 
