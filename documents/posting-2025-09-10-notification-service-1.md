@@ -1,8 +1,8 @@
 ---
 title: "Notification Service 구축 (1)"
-category: ["posting"]
-tags: ["bullmarketlabs", "notification"]
-date: "2025-09-10"
+kind: ["posting"]
+labels: ["bullmarketlabs", "notification"]
+published_at: "2025-09-10"
 ---
 
 # Notification Service 구축 (1)

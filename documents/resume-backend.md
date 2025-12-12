@@ -1,7 +1,7 @@
 ---
 title: "LeeYongHoon Backend Resume"
-category: ["resume"]
-date: "2025-12-10"
+kind: ["resume"]
+published_at: "2025-12-10"
 ---
 
 ## Introduce

@@ -1,7 +1,7 @@
 ---
 title: "Hello, Yonghoon's pages"
-category: ["home"]
-date: "2025-12-10"
+kind: ["home"]
+published_at: "2025-12-10"
 ---
 
 ## Hello, Yonghoon's pages
