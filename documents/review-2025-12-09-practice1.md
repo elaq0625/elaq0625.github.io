@@ -1,6 +1,7 @@
 ---
+layout: default
 title: "불마켓랩스"
-kind: ["review"]
+kind: "review"
 labels: ["practice"]
 published_at: "2025-09-10"
 ---
