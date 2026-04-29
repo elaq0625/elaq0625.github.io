@@ -41,7 +41,7 @@ published_at: "2025-12-10"
 
 <div style="text-align: right; font-size: 1.1em;">
     <p>
-        <i>2025-12-10&nbsp;&nbsp;&nbsp;이 용 훈&nbsp;</i>
+        <i>2025-04-25&nbsp;&nbsp;&nbsp;이 용 훈&nbsp;</i>
     </p>
 </div>
 

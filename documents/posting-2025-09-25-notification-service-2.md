@@ -1,11 +1,11 @@
 ---
-title: "Notification Service 구축 (1)"
+title: "Notification Service 구축 (2)"
 category: "posting"
 tags: ["bullmarketlabs", "notification"]
-published_at: "2025-09-10"
+published_at: "2025-09-25"
 ---
 
-# Notification Service 구축 (1)
+# Notification Service 구축 (2)
 
 ## 배경
 
