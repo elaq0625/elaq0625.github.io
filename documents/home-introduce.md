@@ -9,7 +9,7 @@ published_at: "2025-12-10"
 <table class="custom-link-table">
     <tr>
         <td rowspan='5'>
-            <img class="custom-profile-image" src="/assets/introduce-thumbnail.jpg"></src>
+            <img class="custom-profile-image" src="/assets/introduce-thumbnail2.jpg"></src>
         </td>
     </tr>
     <tr>
