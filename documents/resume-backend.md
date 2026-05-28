@@ -41,7 +41,8 @@ published_at: "2025-12-10"
 ### 불마켓랩스
 글로벌 가상자산 선물 거래소(IMBX) 운영 | 전체 12명/ 개발자 8명 | 참고링크: https://imbx.io/
 
-> **2023.12 - 2025.12 | Engineering Manager & Backend Engineering Lead**
+> **2023.12 - 2025.12 | Engineering Manager & Backend Engineering Lead**  
+
 개발자 2명일때 합류하여 0-base에서 해외 선물 거래소를 오픈 베타 단계까지 런칭했습니다.
 
 #### Engineering management
