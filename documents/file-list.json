@@ -5,22 +5,8 @@
       "path": "/documents/resume-backend.md"
     }
   ],
-  "review": [
-    {
-      "filename": "review-2025-12-09-practice1.md",
-      "path": "/documents/review-2025-12-09-practice1.md"
-    }
-  ],
-  "posting": [
-    {
-      "filename": "posting-2025-09-10-notification-service-1.md",
-      "path": "/documents/posting-2025-09-10-notification-service-1.md"
-    },
-    {
-      "filename": "posting-2025-09-25-notification-service-2.md",
-      "path": "/documents/posting-2025-09-25-notification-service-2.md"
-    }
-  ],
+  "review": [],
+  "posting": [],
   "home": [
     {
       "filename": "home-introduce.md",
